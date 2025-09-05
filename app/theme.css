@@ -1,0 +1,467 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Base Brand Colors - Official Base palette */
+  --base-blue: #0052FF;
+  --base-blue-hover: #0047E1;
+  --base-blue-active: #003DB8;
+  
+  /* Light mode */
+  --app-background: #ffffff;
+  --app-foreground: #000000;
+  --app-foreground-muted: #6B7280;
+  --app-accent: var(--base-blue);
+  --app-accent-hover: var(--base-blue-hover);
+  --app-accent-active: var(--base-blue-active);
+  --app-accent-light: #EBF2FF;
+  --app-gray: #F9FAFB;
+  --app-gray-dark: #F3F4F6;
+  --app-card-bg: rgba(255, 255, 255, 0.9);
+  --app-card-border: #E5E7EB;
+  
+  /* Base-style corner radius (5% with 60% smoothing approximation) */
+  --base-radius: 8px;
+  --base-radius-small: 6px;
+  --base-radius-large: 12px;
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --app-background: #ffffff;
+  --app-foreground: #000000;
+  --app-foreground-muted: #6B7280;
+  --app-accent: var(--base-blue);
+  --app-accent-hover: var(--base-blue-hover);
+  --app-accent-active: var(--base-blue-active);
+  --app-accent-light: #EBF2FF;
+  --app-gray: #F9FAFB;
+  --app-gray-dark: #F3F4F6;
+  --app-card-bg: rgba(255, 255, 255, 0.9);
+  --app-card-border: #E5E7EB;
+}
+
+/* Dark theme - Pleasant greyish colors */
+[data-theme="dark"] {
+  --app-background: #0F0F0F;
+  --app-foreground: #F9FAFB;
+  --app-foreground-muted: #9CA3AF;
+  --app-accent: var(--base-blue);
+  --app-accent-hover: var(--base-blue-hover);
+  --app-accent-active: var(--base-blue-active);
+  --app-accent-light: #1E293B;
+  --app-gray: #1A1A1A;
+  --app-gray-dark: #262626;
+  --app-card-bg: rgba(26, 26, 26, 0.9);
+  --app-card-border: #404040;
+}
+
+/* System preference fallback */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --app-background: #0F0F0F;
+    --app-foreground: #F9FAFB;
+    --app-foreground-muted: #9CA3AF;
+    --app-accent: var(--base-blue);
+    --app-accent-hover: var(--base-blue-hover);
+    --app-accent-active: var(--base-blue-active);
+    --app-accent-light: #1E293B;
+    --app-gray: #1A1A1A;
+    --app-gray-dark: #262626;
+    --app-card-bg: rgba(26, 26, 26, 0.9);
+    --app-card-border: #404040;
+  }
+}
+
+.mini-app-theme {
+  --ock-font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --ock-border-radius: var(--base-radius);
+  --ock-border-radius-inner: var(--base-radius-small);
+
+  /* Text colors - Base style */
+  --ock-text-inverse: var(--app-background);
+  --ock-text-foreground: var(--app-foreground);
+  --ock-text-foreground-muted: var(--app-foreground-muted);
+  --ock-text-error: #EF4444;
+  --ock-text-primary: var(--app-accent);
+  --ock-text-success: #10B981;
+  --ock-text-warning: #F59E0B;
+  --ock-text-disabled: #9CA3AF;
+
+  /* Background colors - Clean Base style */
+  --ock-bg-default: var(--app-background);
+  --ock-bg-default-hover: var(--app-gray);
+  --ock-bg-default-active: var(--app-gray-dark);
+  --ock-bg-alternate: var(--app-gray);
+  --ock-bg-alternate-hover: var(--app-gray-dark);
+  --ock-bg-alternate-active: var(--app-gray-dark);
+  --ock-bg-inverse: var(--app-foreground);
+  --ock-bg-inverse-hover: #1F1F1F;
+  --ock-bg-inverse-active: #2A2A2A;
+  --ock-bg-primary: var(--app-accent);
+  --ock-bg-primary-hover: var(--app-accent-hover);
+  --ock-bg-primary-active: var(--app-accent-active);
+  --ock-bg-primary-washed: var(--app-accent-light);
+  --ock-bg-primary-disabled: #9CA3AF;
+  --ock-bg-secondary: var(--app-gray);
+  --ock-bg-secondary-hover: var(--app-gray-dark);
+  --ock-bg-secondary-active: #E5E7EB;
+  --ock-bg-error: #FEE2E2;
+  --ock-bg-warning: #FEF3C7;
+  --ock-bg-success: #D1FAE5;
+  --ock-bg-default-reverse: var(--app-foreground);
+
+  /* Icon colors */
+  --ock-icon-color-primary: var(--app-accent);
+  --ock-icon-color-foreground: var(--app-foreground);
+  --ock-icon-color-foreground-muted: var(--app-foreground-muted);
+  --ock-icon-color-inverse: var(--app-background);
+  --ock-icon-color-error: #EF4444;
+  --ock-icon-color-success: #10B981;
+  --ock-icon-color-warning: #F59E0B;
+
+  /* Line colors */
+  --ock-line-primary: var(--app-accent);
+  --ock-line-default: var(--app-card-border);
+  --ock-line-heavy: #6B7280;
+  --ock-line-inverse: #E5E7EB;
+}
+
+* {
+  touch-action: manipulation;
+}
+
+body {
+  color: var(--app-foreground);
+  background: var(--app-background);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
+/* Base-style typography */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.text-lg {
+  font-size: 1.125rem;
+  line-height: 1.4;
+}
+
+.text-base {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.text-sm {
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Base-style animations - Clean and purposeful */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-fade-out {
+  animation: fadeOut 2s forwards;
+}
+
+.animate-pulse-subtle {
+  animation: pulseSubtle 2s infinite;
+}
+
+.animate-slide-in-up {
+  animation: slideInUp 0.4s ease-out;
+}
+
+.animate-bounce-in {
+  animation: bounceIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes pulseSubtle {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.01);
+    opacity: 0.95;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Base-style controls - Clean, no special effects */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--app-gray);
+  outline: none;
+  border-radius: var(--base-radius-small);
+  transition: background-color 0.2s ease;
+}
+
+.slider:hover {
+  background: var(--app-gray-dark);
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--base-radius-small);
+  background: var(--app-accent);
+  cursor: pointer;
+  border: 2px solid var(--app-background);
+  transition: all 0.2s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  background: var(--app-accent-hover);
+}
+
+.slider::-webkit-slider-thumb:active {
+  background: var(--app-accent-active);
+}
+
+.slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--base-radius-small);
+  background: var(--app-accent);
+  cursor: pointer;
+  border: 2px solid var(--app-background);
+  transition: all 0.2s ease;
+}
+
+.slider::-moz-range-thumb:hover {
+  background: var(--app-accent-hover);
+}
+
+.slider::-moz-range-thumb:active {
+  background: var(--app-accent-active);
+}
+
+/* Small slider for controls */
+.slider-small {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--app-gray);
+  outline: none;
+  border-radius: var(--base-radius-small);
+  transition: background-color 0.2s ease;
+}
+
+.slider-small::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--base-radius-small);
+  background: var(--app-accent);
+  cursor: pointer;
+  border: 1px solid var(--app-background);
+  transition: all 0.2s ease;
+}
+
+.slider-small::-webkit-slider-thumb:hover {
+  background: var(--app-accent-hover);
+}
+
+.slider-small::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--base-radius-small);
+  background: var(--app-accent);
+  cursor: pointer;
+  border: 1px solid var(--app-background);
+  transition: all 0.2s ease;
+}
+
+.slider-small::-moz-range-thumb:hover {
+  background: var(--app-accent-hover);
+}
+
+/* Base-style buttons - Clean, consistent */
+.btn-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--base-radius);
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn-base:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--app-accent);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--app-accent-hover);
+}
+
+.btn-primary:active:not(:disabled) {
+  background: var(--app-accent-active);
+}
+
+.btn-secondary {
+  background: var(--app-gray);
+  color: var(--app-foreground);
+  border-color: var(--app-card-border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--app-gray-dark);
+}
+
+/* Base-style cards - Clean, minimal */
+.card-base {
+  background: var(--app-card-bg);
+  border: 1px solid var(--app-card-border);
+  border-radius: var(--base-radius);
+  backdrop-filter: blur(8px);
+}
+
+/* Step buttons - Base-style squares */
+.step-button {
+  position: relative;
+  border-radius: var(--base-radius-small);
+  transition: all 0.15s ease;
+  border: 1px solid;
+}
+
+.step-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.step-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Beat indicators */
+.beat-indicator {
+  transition: all 0.2s ease;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.beat-indicator.active {
+  color: var(--app-accent);
+  transform: scale(1.2);
+}
+
+/* Responsive design - Base-style */
+@media (max-width: 768px) {
+  .slider {
+    width: 80px;
+  }
+  
+  .slider-small {
+    width: 50px;
+  }
+  
+  body {
+    font-size: 14px;
+  }
+}
+
+/* Grid and layout utilities - Base-style */
+.grid-base {
+  display: grid;
+  gap: 1rem;
+}
+
+.flex-base {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.container-base {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Focus states - Base-style */
+.focus-base:focus {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
