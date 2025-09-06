@@ -1,11 +1,24 @@
-# MiniKit Template
+# BaseDrum
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-onchain --mini`](), configured with:
+BaseDrum is an innovative onchain music generation platform that transforms your digital identity into personalized techno compositions. Built as a Base App using Coinbase's MiniKit framework, it analyzes your social data and blockchain activity to create unique musical experiences that reflect your onchain journey.
 
-- [MiniKit](https://docs.base.org/builderkits/minikit/overview)
-- [OnchainKit](https://www.base.org/builders/onchainkit)
-- [Tailwind CSS](https://tailwindcss.com)
-- [Next.js](https://nextjs.org/docs)
+## What is BaseDrum?
+
+BaseDrum evolved from a manual drum sequencer into an intelligent music generation system that creates personalized tracks based on:
+
+- **Social Presence**: Activity from Base App interactions, followers, engagement metrics
+- **Onchain Activity**: Transaction history, token holdings, NFT collections, DeFi interactions  
+- **Wallet Profile**: Age, activity patterns, network usage, portfolio diversity
+
+Each data point maps to specific musical elements, creating a personalized audio signature that tells the story of your digital presence through sound.
+
+## Technology Stack
+
+- [MiniKit](https://docs.base.org/builderkits/minikit/overview) - Base App framework
+- [OnchainKit](https://www.base.org/builders/onchainkit) - Base blockchain integration
+- [Tone.js](https://tonejs.github.io/) - Web Audio synthesis and sequencing
+- [Tailwind CSS](https://tailwindcss.com) - Styling framework
+- [Next.js](https://nextjs.org/docs) - React framework
 
 ## Getting Started
 
@@ -22,13 +35,13 @@ bun install
 
 2. Verify environment variables, these will be set up by the `npx create-onchain --mini` command:
 
-You can regenerate the FARCASTER Account Association environment variables by running `npx create-onchain --manifest` in your project directory.
+You can regenerate the Base App Account Association environment variables by running `npx create-onchain --manifest` in your project directory.
 
 The environment variables enable the following features:
 
-- Frame metadata - Sets up the Frame Embed that will be shown when you cast your frame
-- Account association - Allows users to add your frame to their account, enables notifications
-- Redis API keys - Enable Webhooks and background notifications for your application by storing users notification details
+- Frame metadata - Sets up the Frame Embed that will be shown when you share your generated music
+- Account association - Allows users to add BaseDrum to their account, enables notifications  
+- Redis API keys - Enable Webhooks and background notifications for music generation updates
 
 ```bash
 # Shared/OnchainKit variables
@@ -37,7 +50,7 @@ NEXT_PUBLIC_URL=
 NEXT_PUBLIC_ICON_URL=
 NEXT_PUBLIC_ONCHAINKIT_API_KEY=
 
-# Frame metadata
+# Base App Frame metadata  
 FARCASTER_HEADER=
 FARCASTER_PAYLOAD=
 FARCASTER_SIGNATURE=
@@ -63,50 +76,72 @@ REDIS_TOKEN=
 npm run dev
 ```
 
-## Template Features
+## Key Features
 
-### Frame Configuration
-- `.well-known/farcaster.json` endpoint configured for Frame metadata and account association
-- Frame metadata automatically added to page headers in `layout.tsx`
+### Music Generation Engine
+- **Data-Driven Composition**: Transforms your onchain activity into musical parameters
+- **Real-Time Audio Synthesis**: Uses Tone.js for professional-quality web audio
+- **Personalized Mappings**: Each user's data creates unique musical patterns and arrangements
+- **Educational Experience**: Learn how your digital footprint translates to sound
 
-### Background Notifications
-- Redis-backed notification system using Upstash
-- Ready-to-use notification endpoints in `api/notify` and `api/webhook`
-- Notification client utilities in `lib/notification-client.ts`
+### Musical Mapping System
+- **Social Metrics → Rhythm Patterns**: Follower count affects drum complexity and hi-hat activity  
+- **Portfolio Data → Instrument Selection**: Token diversity determines number of instrumental layers
+- **Transaction History → Tempo & Structure**: Activity patterns influence tempo variations and track length
+- **Wallet Characteristics → Effects Processing**: Account age and sophistication control reverb and atmosphere
 
-### Theming
-- Custom theme defined in `theme.css` with OnchainKit variables
-- Pixel font integration with Pixelify Sans
-- Dark/light mode support through OnchainKit
+### Base App Integration
+- Built with MiniKit framework for seamless Base ecosystem integration
+- Frame support for sharing generated compositions
+- Account association enables notifications and personalized experiences
+- OnchainKit integration for reliable blockchain data access
 
-### MiniKit Provider
-The app is wrapped with `MiniKitProvider` in `providers.tsx`, configured with:
-- OnchainKit integration
-- Access to Frames context
-- Sets up Wagmi Connectors
-- Sets up Frame SDK listeners
-- Applies Safe Area Insets
+### Interactive Experience  
+- **Live Sequencer**: Educational 10-step drum machine with techno production rules
+- **Data Visualization**: Real-time display of how your data influences the music
+- **Narrative Explanations**: Clear descriptions of musical choices based on your profile
 
-## Customization
+## How It Works
 
-To get started building your own frame, follow these steps:
+### User Experience Flow
 
-1. Remove the DemoComponents:
-   - Delete `components/DemoComponents.tsx`
-   - Remove demo-related imports from `page.tsx`
+1. **Connect Wallet**: Link your Base App account and wallet to begin the experience
+2. **Data Analysis**: BaseDrum fetches your social metrics, transaction history, and token portfolio  
+3. **Musical Generation**: Your data is transformed into musical parameters using algorithmic mapping
+4. **Personalized Playback**: Experience your unique composition with real-time explanations
+5. **Learn & Share**: Understand how your onchain identity creates sound, then share your track
 
-2. Start building your Frame:
-   - Modify `page.tsx` to create your Frame UI
-   - Update theme variables in `theme.css`
-   - Adjust MiniKit configuration in `providers.tsx`
+### Musical Mappings Examples
 
-3. Add your frame to your account:
-   - Cast your frame to see it in action
-   - Share your frame with others to start building your community
+- **High follower count** → More intricate kick drum patterns
+- **Diverse token portfolio** → Multiple instrumental layers and harmonic complexity  
+- **Frequent transactions** → Dynamic tempo changes and rhythmic variations
+- **DeFi activity** → Active bass lines and advanced effect processing
+- **Long wallet history** → Sophisticated arrangements with atmospheric effects
+
+## Development & Architecture
+
+BaseDrum features a sophisticated architecture designed for real-time music generation:
+
+- **Audio Engine**: Built on Tone.js with support for multiple tracks, effects, and real-time synthesis
+- **Data Services**: Integrated APIs for Base App social data, onchain analytics, and token portfolio analysis  
+- **Mapping Algorithms**: Proprietary algorithms that convert numerical data into musical parameters
+- **Caching Layer**: Redis-backed system for fast data retrieval and user session management
+
+### Future Roadmap
+
+- **Enhanced Data Sources**: Multi-chain support and advanced behavioral pattern recognition
+- **Social Features**: Track sharing, community comparisons, and collaborative compositions  
+- **Advanced Mappings**: Machine learning-driven pattern recognition and cross-data correlations
+- **Export Capabilities**: Download generated tracks and advanced visualization modes
 
 ## Learn More
 
-- [MiniKit Documentation](https://docs.base.org/builderkits/minikit/overview)
-- [OnchainKit Documentation](https://docs.base.org/builderkits/onchainkit/getting-started)
+- [Base App MiniKit Documentation](https://docs.base.org/builderkits/minikit/overview)
+- [OnchainKit Documentation](https://docs.base.org/builderkits/onchainkit/getting-started) 
+- [Tone.js Web Audio Framework](https://tonejs.github.io/)
 - [Next.js Documentation](https://nextjs.org/docs)
-- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
+
+---
+
+*Built for ETHWarsaw 2025 Hackathon - Transforming onchain identity into sound*
