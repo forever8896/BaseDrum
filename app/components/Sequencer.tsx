@@ -132,7 +132,7 @@ export function Sequencer({ className = "" }: { className?: string }) {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [audioInitialized, setAudioInitialized] = useState(false);
   const [userSnapshot, setUserSnapshot] = useState<UserDataSnapshot | null>(null);
-  const [musicInterpretation, setMusicInterpretation] = useState<Record<string, any> | null>(null);
+  const [musicInterpretation, setMusicInterpretation] = useState<Record<string, string | number> | null>(null);
   const [showDataDisplay, setShowDataDisplay] = useState(false);
   const [dataFetcher] = useState(() => new DataFetcher());
   // const intervalRef = useRef<NodeJS.Timeout | null>(null);

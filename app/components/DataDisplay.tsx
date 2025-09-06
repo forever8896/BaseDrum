@@ -5,7 +5,7 @@ import { UserDataSnapshot } from '../../lib/data-fetcher';
 
 interface DataDisplayProps {
   snapshot: UserDataSnapshot | null;
-  musicInterpretation: Record<string, any> | null;
+  musicInterpretation: Record<string, string | number> | null;
   onClose?: () => void;
 }
 
@@ -74,7 +74,13 @@ export function DataDisplay({ snapshot, musicInterpretation, onClose }: DataDisp
       <div className="min-h-[200px] max-h-[300px] overflow-y-auto">
         {activeTab === 'farcaster' && (
           <div className="space-y-3">
-            <h4 className="font-medium text-[var(--app-foreground)]">Farcaster Profile</h4>
+            <h4 className="font-medium text-[var(--app-foreground)]">Farcaster Profile (Mini App Context)</h4>
+            <div className="text-xs text-[var(--app-foreground-muted)] mb-3">
+              Raw data from Mini App context:
+            </div>
+            <div className="bg-[var(--app-card-background)] p-3 rounded border text-xs font-mono">
+              <pre>{JSON.stringify(snapshot.farcaster, null, 2)}</pre>
+            </div>
             {Object.keys(snapshot.farcaster).length === 0 ? (
               <p className="text-[var(--app-foreground-muted)] text-sm">No Farcaster data available</p>
             ) : (
@@ -97,6 +103,12 @@ export function DataDisplay({ snapshot, musicInterpretation, onClose }: DataDisp
                     <span className="text-[var(--app-foreground)]">{snapshot.farcaster.displayName}</span>
                   </div>
                 )}
+                {snapshot.farcaster.pfpUrl && (
+                  <div className="flex justify-between">
+                    <span className="text-[var(--app-foreground-muted)]">Profile Pic:</span>
+                    <span className="text-[var(--app-foreground)] text-xs break-all">{snapshot.farcaster.pfpUrl}</span>
+                  </div>
+                )}
                 {snapshot.farcaster.followerCount !== undefined && (
                   <div className="flex justify-between">
                     <span className="text-[var(--app-foreground-muted)]">Followers:</span>
@@ -117,6 +129,12 @@ export function DataDisplay({ snapshot, musicInterpretation, onClose }: DataDisp
         {activeTab === 'context' && (
           <div className="space-y-3">
             <h4 className="font-medium text-[var(--app-foreground)]">App Context</h4>
+            <div className="text-xs text-[var(--app-foreground-muted)] mb-3">
+              Raw context data:
+            </div>
+            <div className="bg-[var(--app-card-background)] p-3 rounded border text-xs font-mono">
+              <pre>{JSON.stringify(snapshot.context, null, 2)}</pre>
+            </div>
             <div className="grid grid-cols-1 gap-2 text-sm">
               {snapshot.context.entryPoint && (
                 <div className="flex justify-between">
@@ -155,6 +173,12 @@ export function DataDisplay({ snapshot, musicInterpretation, onClose }: DataDisp
         {activeTab === 'wallet' && (
           <div className="space-y-3">
             <h4 className="font-medium text-[var(--app-foreground)]">Wallet Info</h4>
+            <div className="text-xs text-[var(--app-foreground-muted)] mb-3">
+              Raw wallet data:
+            </div>
+            <div className="bg-[var(--app-card-background)] p-3 rounded border text-xs font-mono">
+              <pre>{JSON.stringify(snapshot.wallet, null, 2)}</pre>
+            </div>
             <div className="grid grid-cols-1 gap-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-[var(--app-foreground-muted)]">Connected:</span>
@@ -191,6 +215,12 @@ export function DataDisplay({ snapshot, musicInterpretation, onClose }: DataDisp
         {activeTab === 'onchain' && (
           <div className="space-y-3">
             <h4 className="font-medium text-[var(--app-foreground)]">Onchain Activity</h4>
+            <div className="text-xs text-[var(--app-foreground-muted)] mb-3">
+              Raw onchain data (from OnchainKit getPortfolios API):
+            </div>
+            <div className="bg-[var(--app-card-background)] p-3 rounded border text-xs font-mono">
+              <pre>{JSON.stringify(snapshot.onchain, null, 2)}</pre>
+            </div>
             <div className="grid grid-cols-1 gap-2 text-sm">
               {snapshot.onchain.transactionCount !== undefined && (
                 <div className="flex justify-between">
