@@ -23,3 +23,21 @@ body {
   font-style: normal;
   font-size: 80%;
 }
+
+/* Drum animations synced to 140 BPM */
+@keyframes drum-shake {
+  0%, 100% { transform: translateX(0) translateY(0); }
+  25% { transform: translateX(-2px) translateY(-1px); }
+  50% { transform: translateX(2px) translateY(1px); }
+  75% { transform: translateX(-1px) translateY(-2px); }
+}
+
+@keyframes drum-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* Custom animation classes */
+.animate-drum-shake {
+  animation: drum-shake 428ms infinite;
+}

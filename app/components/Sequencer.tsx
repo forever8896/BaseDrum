@@ -1,9 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useAccount } from "wagmi";
+import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { audioEngine } from "../../lib/audio-engine";
 import { ThemeSwitcher } from "./ThemeProvider";
 import { RuleGuide, MUSICAL_CONCEPTS, MusicalConcept } from "./RuleGuide";
+import { DataDisplay } from "./DataDisplay";
+import { DataFetcher, UserDataSnapshot } from "../../lib/data-fetcher";
 
 interface Rule {
   id: number;
@@ -117,6 +121,8 @@ const TECHNO_RULES: Rule[] = [
 ];
 
 export function Sequencer({ className = "" }: { className?: string }) {
+  const { context } = useMiniKit();
+  const { address } = useAccount();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [tempo, setTempo] = useState(120);
@@ -125,6 +131,10 @@ export function Sequencer({ className = "" }: { className?: string }) {
   const [musicalConcepts, setMusicalConcepts] = useState<MusicalConcept[]>(MUSICAL_CONCEPTS);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [audioInitialized, setAudioInitialized] = useState(false);
+  const [userSnapshot, setUserSnapshot] = useState<UserDataSnapshot | null>(null);
+  const [musicInterpretation, setMusicInterpretation] = useState<Record<string, any> | null>(null);
+  const [showDataDisplay, setShowDataDisplay] = useState(false);
+  const [dataFetcher] = useState(() => new DataFetcher());
   // const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize tracks based on rules
@@ -189,12 +199,38 @@ export function Sequencer({ className = "" }: { className?: string }) {
     currentRuleRef.current = currentRule;
   }, [currentRule]);
 
-  const toggleStep = (trackId: string, stepIndex: number) => {
+  const toggleStep = async (trackId: string, stepIndex: number) => {
+    // Toggle the step
     setTracks(prev => prev.map(track => 
       track.id === trackId 
         ? { ...track, steps: track.steps.map((step, i) => i === stepIndex ? !step : step) }
         : track
     ));
+
+    // Fetch and display user data when step is clicked
+    await fetchUserData();
+  };
+
+  const fetchUserData = async () => {
+    try {
+      console.log('Fetching user data...');
+      console.log('Context:', context);
+      console.log('Address:', address);
+
+      const snapshot = await dataFetcher.fetchUserSnapshot(context, address);
+      setUserSnapshot(snapshot);
+
+      const interpretation = DataFetcher.interpretDataForMusic(snapshot);
+      setMusicInterpretation(interpretation);
+
+      console.log('Data snapshot:', snapshot);
+      console.log('Music interpretation:', interpretation);
+
+      // Show the data display
+      setShowDataDisplay(true);
+    } catch (error) {
+      console.error('Failed to fetch user data:', error);
+    }
   };
 
   function getRuleTrackId(ruleId: number): string {
@@ -506,6 +542,12 @@ export function Sequencer({ className = "" }: { className?: string }) {
           >
             clear
           </button>
+          <button
+            onClick={fetchUserData}
+            className="btn-base px-4 py-2 text-sm font-medium bg-[var(--app-accent)] text-white hover:bg-[var(--app-accent-hover)]"
+          >
+            show data
+          </button>
         </div>
       </div>
 
@@ -640,12 +682,24 @@ export function Sequencer({ className = "" }: { className?: string }) {
 
 
 
+      {/* Data Display */}
+      {showDataDisplay && (
+        <div className="mt-8">
+          <DataDisplay 
+            snapshot={userSnapshot}
+            musicInterpretation={musicInterpretation}
+            onClose={() => setShowDataDisplay(false)}
+          />
+        </div>
+      )}
+
       {/* Track Summary */}
       <div className="mt-8 text-center">
         <p className="text-sm text-[var(--app-foreground-muted)]">
           tracks: {visibleTracks.length}/10 • 
           steps: {visibleTracks.reduce((sum, track) => sum + track.steps.filter(Boolean).length, 0)}
           {audioInitialized && " • audio ready"}
+          {userSnapshot && " • data captured"}
         </p>
       </div>
     </div>
