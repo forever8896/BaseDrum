@@ -9,12 +9,14 @@ const orbitron = Orbitron({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-orbitron",
+  weight: ["400", "900"],
 });
 
 const exo2 = Exo_2({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-exo-2",
+  weight: ["400", "700"],
 });
 
 export const viewport: Viewport = {
@@ -54,7 +56,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${orbitron.variable} ${exo2.variable}`}>
+    <html lang="en" className={`${orbitron.variable} ${exo2.variable}`} suppressHydrationWarning>
       <body className="bg-background">
         <Providers>{children}</Providers>
       </body>
