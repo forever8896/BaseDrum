@@ -12,6 +12,10 @@ const config: Config = {
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
+      fontFamily: {
+        orbitron: ["var(--font-orbitron)", "sans-serif"],
+        exo: ["var(--font-exo-2)", "sans-serif"],
+      },
       animation: {
         "fade-out": "1s fadeOut 3s ease-out forwards",
       },

@@ -3,6 +3,19 @@ import "@coinbase/onchainkit/styles.css";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
+import { Orbitron, Exo_2 } from "next/font/google";
+
+const orbitron = Orbitron({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-orbitron",
+});
+
+const exo2 = Exo_2({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-exo-2",
+});
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -41,7 +54,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${orbitron.variable} ${exo2.variable}`}>
       <body className="bg-background">
         <Providers>{children}</Providers>
       </body>
