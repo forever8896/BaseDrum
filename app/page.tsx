@@ -160,7 +160,7 @@ export default function App() {
   }, [context, frameAdded, handleAddFrame]);
 
   const currentLayerData = currentLayer < musicLayers.length ? musicLayers[currentLayer] : null;
-  const isComplete = musicLayers.length > 0 && currentLayer >= musicLayers.length;
+  const isComplete = musicLayers.length > 0 && currentLayer >= musicLayers.length && !isGenerating;
 
   const fetchUserData = useCallback(async () => {
     try {
@@ -182,8 +182,7 @@ export default function App() {
       setGeneratedTracks(tracks);
       console.log('Generated personalized tracks:', tracks);
 
-      // Show the data display
-      setShowDataDisplay(true);
+      // Don't automatically show data display - only show when user clicks "Show Data" button
     } catch (error) {
       console.error('Failed to fetch user data:', error);
       
@@ -357,22 +356,34 @@ export default function App() {
     console.log(`Layer interval: ${layerInterval}ms (${barsPerLayer} bars)`);
     
     // Add remaining layers every 4 bars
-    musicLayers.slice(1).forEach((layer, index) => {
-        setTimeout(() => {
-        console.log(`Adding layer ${index + 1} after ${(index + 1) * layerInterval}ms`);
-        addNextLayer(index + 1);
-        setCurrentLayer(index + 2);
-          
-          // Stop generation when all layers are complete
-        if (index === musicLayers.length - 2) {
-            setTimeout(() => {
-              setIsGenerating(false);
-              setShowSoundwaves(false);
-            console.log('Music generation complete');
-          }, layerInterval);
-        }
-      }, (index + 1) * layerInterval);
-    });
+    if (musicLayers.length === 1) {
+      // Handle single layer case - complete after one cycle
+      setTimeout(() => {
+        setIsGenerating(false);
+        setShowSoundwaves(false);
+        setCurrentLayer(musicLayers.length);
+        console.log('Single layer generation complete');
+      }, layerInterval);
+    } else {
+      // Handle multiple layers
+      musicLayers.slice(1).forEach((layer, index) => {
+          setTimeout(() => {
+          console.log(`Adding layer ${index + 1} after ${(index + 1) * layerInterval}ms`);
+          addNextLayer(index + 1);
+          setCurrentLayer(index + 2);
+            
+            // Stop generation when all layers are complete
+          if (index === musicLayers.length - 2) {
+              setTimeout(() => {
+                setIsGenerating(false);
+                setShowSoundwaves(false);
+                setCurrentLayer(musicLayers.length); // Ensure we're at the end
+              console.log('Music generation complete');
+            }, layerInterval);
+          }
+        }, (index + 1) * layerInterval);
+      });
+    }
   }, [isComplete, isGenerating, musicLayers, fetchUserData, addNextLayer, startPlayback, initializeAudioForPlayback]);
 
   const handleReset = useCallback(() => {
@@ -396,7 +407,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col min-h-screen font-sans text-[var(--app-foreground)] mini-app-theme bg-[var(--app-background)]">
-      <div className="w-full max-w-6xl mx-auto px-4 py-3 flex flex-col min-h-screen">
+      <div className="w-full max-w-6xl mx-auto px-4 py-3 flex flex-col flex-1">
         <header className="flex justify-between items-center mb-6 h-11">
           <div>
             {isConnected && (
@@ -459,10 +470,10 @@ export default function App() {
                       {isPlaying ? "Stop" : "Play"}
                     </button>
                     <button
-                      onClick={fetchUserData}
+                      onClick={() => setShowDataDisplay(true)}
                       className="bg-[var(--app-card-background)] text-[var(--app-foreground)] px-6 py-2 rounded-lg hover:bg-opacity-80 transition-colors border border-[var(--app-card-border)]"
                     >
-                      Show Data
+                      View Your Data
                     </button>
                   </div>
                 </div>
