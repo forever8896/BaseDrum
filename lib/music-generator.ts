@@ -140,24 +140,55 @@ export class MusicGenerator {
     const farcaster = userData.farcaster;
     const onchain = userData.onchain;
     const wallet = userData.wallet;
+    const prices = userData.prices;
 
-    // Tempo: 120-160 BPM based on activity level
+    // Tempo: 120-160 BPM based on activity level + crypto price influences
     const followerCount = farcaster.followerCount || 0;
     const followingCount = farcaster.followingCount || 0;
     const activityLevel = Math.min(followerCount + followingCount, 1000) / 1000;
-    const tempo = Math.round(120 + (activityLevel * 40)); // 120-160 BPM
+    
+    // Base tempo from activity
+    let tempo = Math.round(120 + (activityLevel * 40)); // 120-160 BPM
+    
+    // Crypto price micro-adjustments
+    if (prices.eth && prices.btc) {
+      const ethPrice = prices.eth;
+      const btcPrice = prices.btc;
+      
+      // ETH price affects tempo slightly (higher price = slightly faster)
+      const ethInfluence = Math.min((ethPrice % 1000) / 100, 10); // 0-10 BPM variation
+      
+      // BTC price adds groove variations
+      const btcInfluence = (btcPrice % 100) / 10; // 0-10 BPM variation
+      
+      tempo = Math.round(tempo + ethInfluence - btcInfluence); // Balance the influences
+      tempo = Math.max(115, Math.min(165, tempo)); // Keep within musical range
+    }
 
     // Density: How busy the track is (based on transaction count)
     const transactionCount = onchain.transactionCount || 0;
     const onchainActivity = Math.min(transactionCount, 1000) / 1000;
     const density = Math.min(onchainActivity, 1);
 
-    // Energy: How intense the track is (based on wallet balance and token diversity)
+    // Energy: How intense the track is (based on wallet balance, token diversity, and crypto prices)
     const balance = parseFloat(wallet.balance || '0');
     const wealth = Math.min(balance, 10) / 10; // Cap at 10 ETH equivalent
     const tokenCount = onchain.tokenCount || 0;
     const tokenActivity = Math.min(tokenCount, 20) / 20;
-    const energy = Math.min((wealth + tokenActivity) / 2, 1);
+    
+    let energy = Math.min((wealth + tokenActivity) / 2, 1);
+    
+    // Crypto prices influence energy levels
+    if (prices.eth && prices.btc) {
+      const ethPrice = prices.eth;
+      const btcPrice = prices.btc;
+      
+      // Higher crypto prices = more energy (bull market vibes)
+      const ethEnergyBoost = Math.min(ethPrice / 10000, 0.3); // Max 0.3 boost from ETH
+      const btcEnergyBoost = Math.min(btcPrice / 200000, 0.2); // Max 0.2 boost from BTC
+      
+      energy = Math.min(energy + ethEnergyBoost + btcEnergyBoost, 1);
+    }
 
     // Complexity: Rhythmic complexity (based on token diversity and NFT activity)
     const tokenDiversity = Math.min(tokenCount, 20) / 20;

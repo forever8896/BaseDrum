@@ -10,7 +10,7 @@ interface DataDisplayProps {
 }
 
 export function DataDisplay({ snapshot, musicInterpretation, onClose }: DataDisplayProps) {
-  const [activeTab, setActiveTab] = useState<'farcaster' | 'context' | 'wallet' | 'onchain' | 'music'>('farcaster');
+  const [activeTab, setActiveTab] = useState<'farcaster' | 'context' | 'wallet' | 'onchain' | 'prices' | 'music'>('farcaster');
 
   if (!snapshot) {
     return (
@@ -25,6 +25,7 @@ export function DataDisplay({ snapshot, musicInterpretation, onClose }: DataDisp
     { id: 'context', label: 'Context', data: snapshot.context },
     { id: 'wallet', label: 'Wallet', data: snapshot.wallet },
     { id: 'onchain', label: 'Onchain', data: snapshot.onchain },
+    { id: 'prices', label: 'Crypto Prices', data: snapshot.prices },
     { id: 'music', label: 'Music Mapping', data: musicInterpretation },
   ] as const;
 
@@ -264,6 +265,82 @@ export function DataDisplay({ snapshot, musicInterpretation, onClose }: DataDisp
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'prices' && (
+          <div className="space-y-3">
+            <h4 className="font-medium text-[var(--app-foreground)]">Live Crypto Prices</h4>
+            <div className="text-xs text-[var(--app-foreground-muted)] mb-3">
+              Real-time prices from Redstone API (secured on Arweave):
+            </div>
+            {(!snapshot.prices.eth && !snapshot.prices.btc) ? (
+              <div className="text-center py-6">
+                <p className="text-[var(--app-foreground-muted)] text-sm mb-2">No live price data available</p>
+                <p className="text-xs text-[var(--app-foreground-muted)]">
+                  API connection failed - music generated without price influences
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {snapshot.prices.eth && (
+                  <div className="bg-[var(--app-card-background)] p-3 rounded border">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                          ETH
+                        </div>
+                        <span className="text-[var(--app-foreground)] font-medium">Ethereum</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[var(--app-foreground)] font-mono text-lg">
+                          ${snapshot.prices.eth.toLocaleString('en-US', { 
+                            minimumFractionDigits: 2, 
+                            maximumFractionDigits: 2 
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {snapshot.prices.btc && (
+                  <div className="bg-[var(--app-card-background)] p-3 rounded border">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                          BTC
+                        </div>
+                        <span className="text-[var(--app-foreground)] font-medium">Bitcoin</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[var(--app-foreground)] font-mono text-lg">
+                          ${snapshot.prices.btc.toLocaleString('en-US', { 
+                            minimumFractionDigits: 2, 
+                            maximumFractionDigits: 2 
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {snapshot.prices.fetchedAt && (
+                  <div className="text-xs text-[var(--app-foreground-muted)] text-center pt-2 border-t border-[var(--app-card-border)]">
+                    Fetched at {snapshot.prices.fetchedAt.toLocaleTimeString()}
+                  </div>
+                )}
+                
+                                 <div className="text-xs text-[var(--app-foreground-muted)] bg-blue-50 border border-blue-200 rounded p-2">
+                   🎵 These prices influence your music: ETH affects rhythm complexity, BTC affects bass depth and energy levels
+                   {(!snapshot.prices.eth || !snapshot.prices.btc) && (
+                     <div className="mt-1 text-orange-600">
+                       ⚠️ Some prices unavailable due to API connection issues
+                     </div>
+                   )}
+                 </div>
+              </div>
+            )}
           </div>
         )}
 

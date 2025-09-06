@@ -44,6 +44,11 @@ export interface UserDataSnapshot {
     userType?: string;
     activityLevel?: string;
   };
+  prices: {
+    eth?: number;
+    btc?: number;
+    fetchedAt?: Date;
+  };
   timestamp: Date;
 }
 
@@ -63,6 +68,7 @@ export class DataFetcher {
         isConnected: !!walletAddress,
       },
       onchain: {},
+      prices: {},
       timestamp: new Date(),
     };
 
@@ -123,6 +129,13 @@ export class DataFetcher {
       }
     }
 
+    // Fetch crypto prices (always fetch these for music generation)
+    try {
+      await this.fetchCryptoPrices(snapshot);
+    } catch (error) {
+      console.error('Failed to fetch crypto prices:', error);
+    }
+
     return snapshot;
   }
 
@@ -156,21 +169,48 @@ export class DataFetcher {
         console.error('OnchainKit API call failed:', apiError);
       }
 
-      // 2. Fetch comprehensive onchain data via BaseScan API
+      // 2. Fetch comprehensive onchain data via RPC with fallback endpoints
       try {
-        // Get transaction count
-        const txCountResponse = await fetch('https://base-mainnet.public.blastapi.io', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            method: 'eth_getTransactionCount',
-            params: [address, 'latest'],
-            id: 1
-          })
-        });
+        // List of Base RPC endpoints to try
+        const rpcEndpoints = [
+          'https://mainnet.base.org',
+          'https://base.llamarpc.com',
+          'https://base-mainnet.public.blastapi.io'
+        ];
         
-        if (txCountResponse.ok) {
+        let txCountResponse = null;
+        let lastError = null;
+        
+        // Try each RPC endpoint until one works
+        for (const endpoint of rpcEndpoints) {
+          try {
+            console.log(`Trying RPC endpoint: ${endpoint}`);
+            txCountResponse = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                jsonrpc: '2.0',
+                method: 'eth_getTransactionCount',
+                params: [address, 'latest'],
+                id: 1
+              })
+            });
+            
+            if (txCountResponse.ok) {
+              console.log(`Successfully connected to: ${endpoint}`);
+              break;
+            } else {
+              console.warn(`RPC endpoint ${endpoint} returned status: ${txCountResponse.status}`);
+              txCountResponse = null;
+            }
+          } catch (endpointError) {
+            console.warn(`RPC endpoint ${endpoint} failed:`, endpointError);
+            lastError = endpointError;
+            txCountResponse = null;
+          }
+        }
+        
+        if (txCountResponse && txCountResponse.ok) {
           const txData = await txCountResponse.json();
           const txCount = parseInt(txData.result, 16);
           snapshot.onchain.transactionCount = txCount;
@@ -181,6 +221,13 @@ export class DataFetcher {
             const estimatedDate = new Date();
             estimatedDate.setDate(estimatedDate.getDate() - (estimatedWeeksOld * 7));
             snapshot.onchain.firstTransactionDate = estimatedDate;
+          }
+        } else {
+          console.warn('All RPC endpoints failed, no transaction data available');
+          // Don't set fake transaction counts - leave undefined for truthful data
+          
+          if (lastError) {
+            console.error('Last RPC error:', lastError);
           }
         }
 
@@ -203,7 +250,7 @@ export class DataFetcher {
               snapshot.onchain.nftCount = nftData.result.length;
             }
           }
-        } catch (nftError) {
+        } catch {
           // Enhanced RPC methods might not be available on this endpoint
           console.log('Enhanced NFT query not available on this RPC');
         }
@@ -285,6 +332,57 @@ export class DataFetcher {
     return null;
   }
 
+  private async fetchCryptoPrices(snapshot: UserDataSnapshot): Promise<void> {
+    try {
+      console.log('Attempting to fetch crypto prices via RedStone HTTP API...');
+      
+      // Use RedStone's HTTP API directly for reliable data fetching
+      const apiUrl = 'https://api.redstone.finance/prices';
+      
+      const response = await fetch(`${apiUrl}?symbols=ETH,BTC`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      let ethPrice: number | undefined;
+      let btcPrice: number | undefined;
+      
+      // Extract prices from RedStone API response (verified working format)
+      if (data && typeof data === 'object') {
+        if (data.ETH && typeof data.ETH.value === 'number') {
+          ethPrice = data.ETH.value;
+        }
+        if (data.BTC && typeof data.BTC.value === 'number') {
+          btcPrice = data.BTC.value;
+        }
+      }
+      
+      snapshot.prices = {
+        eth: ethPrice,
+        btc: btcPrice,
+        fetchedAt: new Date(),
+      };
+      
+      console.log('Crypto prices fetched successfully:', {
+        ETH: ethPrice ? `$${ethPrice.toFixed(2)}` : 'not available',
+        BTC: btcPrice ? `$${btcPrice.toFixed(2)}` : 'not available',
+      });
+      
+    } catch (error) {
+      console.error('RedStone API failed, no price data available:', error);
+      
+      // Don't use fake data - just leave prices undefined for truthful data
+      snapshot.prices = {
+        fetchedAt: new Date(),
+      };
+      
+      console.log('No crypto price data available - music will generate without price influences');
+    }
+  }
+
   // Musical data interpretation methods
   static interpretDataForMusic(snapshot: UserDataSnapshot): Record<string, string | number> {
     const musicData: Record<string, string | number> = {};
@@ -345,6 +443,32 @@ export class DataFetcher {
     
     // Tempo based on activity patterns
     musicData.tempo = 100 + (fid % 60) + Math.min(20, txCount / 5);
+    
+    // Crypto price influences on music
+    if (snapshot.prices.eth && snapshot.prices.btc) {
+      const ethPrice = snapshot.prices.eth;
+      const btcPrice = snapshot.prices.btc;
+      
+      // ETH price affects rhythm complexity (higher price = more complex)
+      musicData.ethRhythmComplexity = Math.min(ethPrice / 5000, 1); // Normalize around $5k ETH
+      
+      // BTC price affects bass depth and volume (higher price = deeper bass)
+      musicData.btcBassDepth = Math.min(btcPrice / 100000, 1); // Normalize around $100k BTC
+      
+      // Price ratio affects harmonic relationships
+      const priceRatio = ethPrice / btcPrice;
+      musicData.harmonicRatio = priceRatio;
+      
+      // Recent price movements could affect tempo variations
+      musicData.priceInfluencedTempo = 120 + ((ethPrice % 1000) / 10); // Micro variations
+      
+      console.log('Price-based music elements:', {
+        ethRhythmComplexity: musicData.ethRhythmComplexity,
+        btcBassDepth: musicData.btcBassDepth,
+        harmonicRatio: musicData.harmonicRatio,
+        priceInfluencedTempo: musicData.priceInfluencedTempo,
+      });
+    }
     
     // Special attributes for specific protocols
     if (snapshot.onchain.defiProtocols?.includes('Uniswap')) {
