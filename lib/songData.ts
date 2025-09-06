@@ -1,6 +1,7 @@
 // Song data structure based on dataformat.md
 // Import types and schemas from dedicated schema file
-export type { TrackData, SongData } from './songSchema';
+import type { TrackData, SongData } from './songSchema';
+export type { TrackData, SongData };
 export { 
   TrackDataSchema, 
   SongDataSchema,

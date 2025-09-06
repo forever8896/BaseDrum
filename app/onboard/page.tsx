@@ -14,8 +14,8 @@ import {
   EthBalance,
 } from "@coinbase/onchainkit/identity";
 import { useAccount } from "wagmi";
-import { useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { BaseDrumAudioEngine } from "@/lib/audioEngine";
 import { SongData } from "@/lib/songData";
 
@@ -27,17 +27,24 @@ interface GaugeProps {
 
 function CircularGauge({ value, onChange, position }: GaugeProps) {
   const handleGaugeInteraction = (event: React.MouseEvent | React.TouchEvent, targetElement?: HTMLElement) => {
-    const target = targetElement || event.currentTarget;
+    const target = targetElement || event.currentTarget as HTMLElement;
     if (!target || !target.getBoundingClientRect) return;
 
     const rect = target.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
 
-    const clientX =
-      event.clientX || (event.touches && event.touches[0].clientX);
-    const clientY =
-      event.clientY || (event.touches && event.touches[0].clientY);
+    let clientX: number, clientY: number;
+    
+    if ('touches' in event) {
+      // Touch event
+      clientX = event.touches[0].clientX;
+      clientY = event.touches[0].clientY;
+    } else {
+      // Mouse event
+      clientX = event.clientX;
+      clientY = event.clientY;
+    }
 
     const x = clientX - centerX;
     const y = clientY - centerY;
@@ -75,11 +82,11 @@ function CircularGauge({ value, onChange, position }: GaugeProps) {
   };
 
   const handleMouseDown = (event: React.MouseEvent) => {
-    const targetElement = event.currentTarget;
+    const targetElement = event.currentTarget as HTMLElement;
     handleGaugeInteraction(event, targetElement);
 
     const handleMouseMove = (e: MouseEvent) => {
-      handleGaugeInteraction(e, targetElement);
+      handleGaugeInteraction(e as any, targetElement);
     };
     const handleMouseUp = () => {
       document.removeEventListener("mousemove", handleMouseMove);
@@ -92,12 +99,12 @@ function CircularGauge({ value, onChange, position }: GaugeProps) {
 
   const handleTouchStart = (event: React.TouchEvent) => {
     event.preventDefault();
-    const targetElement = event.currentTarget;
+    const targetElement = event.currentTarget as HTMLElement;
     handleGaugeInteraction(event, targetElement);
 
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault();
-      handleGaugeInteraction(e, targetElement);
+      handleGaugeInteraction(e as any, targetElement);
     };
     const handleTouchEnd = () => {
       document.removeEventListener("touchmove", handleTouchMove);
@@ -182,7 +189,6 @@ function CircularGauge({ value, onChange, position }: GaugeProps) {
 
 export default function OnboardPage() {
   const { isConnected } = useAccount();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const audioEngineRef = useRef<BaseDrumAudioEngine | null>(null);
   const songDataRef = useRef<SongData>(createSimplePulse());
@@ -249,11 +255,11 @@ export default function OnboardPage() {
     };
   }
 
-  const kickPattern = [0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60];
-  const isKickStep = (step: number): boolean => kickPattern.includes(step);
+  const kickPattern = useMemo(() => [0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60], []);
+  const isKickStep = useCallback((step: number): boolean => kickPattern.includes(step), [kickPattern]);
 
   // Stage configuration
-  const stages = [
+  const stages = useMemo(() => [
     { 
       title: '', 
       text: '', 
@@ -278,7 +284,49 @@ export default function OnboardPage() {
       buttonText: 'Play track',
       showFlash: false 
     }
-  ];
+  ], []);
+
+  const handleStepChange = useCallback((step: number) => {
+    setCurrentStep(step);
+    
+    if (isKickStep(step)) {
+      beatCountRef.current += 1;
+      // Note: beatCountRef continues counting across all stages - music never stops
+      
+      // Only show flash text on stage 0 (initial stage)
+      if (currentStage === 0 && stages[0].showFlash) {
+        if (beatCountRef.current === 1) {
+          setShowFlashText("base");
+          setTimeout(() => setShowFlashText(null), 150);
+        } else if (beatCountRef.current === 2) {
+          setShowFlashText("drum");
+          setTimeout(() => setShowFlashText(null), 150);
+        }
+      }
+      
+      // Show initial button after 4 beats (only on stage 0)
+      if (beatCountRef.current === 4 && currentStage === 0) {
+        setShowButton(true);
+      }
+    }
+  }, [beatCountRef, currentStage, stages, isKickStep]);
+
+  const startAudio = useCallback(async () => {
+    if (audioEngineRef.current && !audioStarted) {
+      try {
+        await audioEngineRef.current.play();
+        setAudioStarted(true);
+        beatCountRef.current = 0;
+        setShowButton(false);
+        setSquareShrank(false);
+        setCurrentStage(0);
+        setStageTitle('');
+        setStageText('');
+      } catch (error) {
+        console.error("Failed to start audio:", error);
+      }
+    }
+  }, [audioEngineRef, audioStarted]);
 
   // Initialize stage from URL parameter
   useEffect(() => {
@@ -304,7 +352,7 @@ export default function OnboardPage() {
         }
       }
     }
-  }, [searchParams, isConnected, audioStarted]);
+  }, [searchParams, isConnected, audioStarted, stages, startAudio]);
 
   useEffect(() => {
     const initAudio = async () => {
@@ -326,49 +374,7 @@ export default function OnboardPage() {
         audioEngineRef.current = null;
       }
     };
-  }, []);
-
-  const handleStepChange = (step: number) => {
-    setCurrentStep(step);
-    
-    if (isKickStep(step)) {
-      beatCountRef.current += 1;
-      // Note: beatCountRef continues counting across all stages - music never stops
-      
-      // Only show flash text on stage 0 (initial stage)
-      if (currentStage === 0 && stages[0].showFlash) {
-        if (beatCountRef.current === 1) {
-          setShowFlashText("base");
-          setTimeout(() => setShowFlashText(null), 150);
-        } else if (beatCountRef.current === 2) {
-          setShowFlashText("drum");
-          setTimeout(() => setShowFlashText(null), 150);
-        }
-      }
-      
-      // Show initial button after 4 beats (only on stage 0)
-      if (beatCountRef.current === 4 && currentStage === 0) {
-        setShowButton(true);
-      }
-    }
-  };
-
-  const startAudio = async () => {
-    if (audioEngineRef.current && !audioStarted) {
-      try {
-        await audioEngineRef.current.play();
-        setAudioStarted(true);
-        beatCountRef.current = 0;
-        setShowButton(false);
-        setSquareShrank(false);
-        setCurrentStage(0);
-        setStageTitle('');
-        setStageText('');
-      } catch (error) {
-        console.error("Failed to start audio:", error);
-      }
-    }
-  };
+  }, [handleStepChange]);
 
   const progressToNextStage = () => {
     if (currentStage < stages.length - 1) {
@@ -552,7 +558,6 @@ export default function OnboardPage() {
           <Wallet className="z-10">
             <ConnectWallet 
               className="bg-[var(--app-accent)] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-opacity-80 transition-colors min-w-48"
-              onClick={startAudio}
             >
               Connect Wallet
             </ConnectWallet>
@@ -575,9 +580,9 @@ export default function OnboardPage() {
             <div className="flex-1 flex items-center justify-center">
               <div className="relative">
                 <div 
-                  className="w-48 h-48 bg-blue-600 rounded-[5%] cursor-pointer hover:bg-blue-700 transition-colors"
-                  style={getSquareStyle()}
-                  onClick={currentStage === 0 ? startAudio : undefined}
+                                  className="w-48 h-48 bg-blue-600 rounded-[5%] cursor-pointer hover:bg-blue-700 transition-colors"
+                style={getSquareStyle()}
+                onClick={currentStage === 0 ? () => startAudio() : undefined}
                 />
                 
                 {/* Flash Text - Only Stage 0 */}

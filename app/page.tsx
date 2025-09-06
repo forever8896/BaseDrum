@@ -53,7 +53,6 @@ export default function App() {
   const [hasStarted, setHasStarted] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
   const [tempo] = useState(140);
   const [audioInitialized, setAudioInitialized] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
@@ -237,15 +236,14 @@ export default function App() {
 
     console.log('Starting playback with tracks:', tracksRef.current.length);
     setIsPlaying(true);
-    setCurrentStep(0);
     
     // Use audio engine for playback
     audioEngine.startSequence(() => {
       const currentTracks = tracksRef.current;
       console.log('Sequence callback - current tracks:', currentTracks.map(t => ({id: t.id, activeSteps: t.steps.filter(Boolean).length})));
       return currentTracks;
-    }, tempo, (step: number) => {
-      setCurrentStep(step);
+    }, tempo, () => {
+      // Step tracking handled internally
     });
   }, [audioInitialized, isPlaying, tempo]);
 
@@ -254,7 +252,6 @@ export default function App() {
 
     console.log('Stopping playback');
     setIsPlaying(false);
-    setCurrentStep(0);
     audioEngine.stopSequence();
   }, [isPlaying]);
 
