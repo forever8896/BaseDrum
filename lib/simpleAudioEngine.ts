@@ -23,8 +23,13 @@ const BEAT_INTENSITY_DECAY = [
 export class SimpleAudioEngine {
   private kick: Tone.MembraneSynth | null = null;
   private clap: Tone.NoiseSynth | null = null;
+  private bass: Tone.Synth | null = null;
+  private acid: Tone.Synth | null = null;
+  private acidFilter: Tone.AutoFilter | null = null;
   private kickVolume: Tone.Volume | null = null;
   private clapVolume: Tone.Volume | null = null;
+  private bassVolume: Tone.Volume | null = null;
+  private acidVolume: Tone.Volume | null = null;
   private sequence: Tone.Sequence | null = null;
   private isInitialized = false;
   private isPlaying = false;
@@ -32,6 +37,8 @@ export class SimpleAudioEngine {
   private onBeatIntensityCallback?: BeatIntensityCallback;
   private kickPattern: number[] = [0, 4, 8, 12]; // Default pattern
   private clapPattern: number[] = [4, 12]; // Default clap pattern
+  private bassPattern: number[] = [0, 2, 8, 10]; // Simple bass pattern
+  private acidPattern: { step: number; note: string | null }[] = []; // Acid melody pattern with notes
 
   async initialize(
     onStepChange?: StepChangeCallback,
@@ -46,6 +53,8 @@ export class SimpleAudioEngine {
     
     this.createKickDrum();
     this.createClap();
+    this.createBass();
+    this.createAcid();
     this.setupTempo();
     this.createSequence();
     
@@ -80,6 +89,41 @@ export class SimpleAudioEngine {
     }).connect(this.clapVolume);
   }
 
+  private createBass(): void {
+    this.bassVolume = new Tone.Volume(-Infinity).toDestination(); // Start muted
+    this.bass = new Tone.Synth({
+      oscillator: { type: "sine" },
+      envelope: { 
+        attack: 0.02, 
+        decay: 0.2, 
+        sustain: 0.4, 
+        release: 0.6 
+      }
+    }).connect(this.bassVolume);
+  }
+
+  private createAcid(): void {
+    this.acidVolume = new Tone.Volume(-Infinity).toDestination(); // Start muted
+    this.acidFilter = new Tone.AutoFilter({
+      frequency: "8n",
+      baseFrequency: 200,
+      octaves: 3
+    });
+    
+    this.acid = new Tone.Synth({
+      oscillator: { type: "square" },
+      envelope: { 
+        attack: 0.01, 
+        decay: 0.1, 
+        sustain: 0.3, 
+        release: 0.2 
+      }
+    }).connect(this.acidFilter).connect(this.acidVolume);
+    
+    // Start the filter LFO
+    this.acidFilter.start();
+  }
+
   private setupTempo(): void {
     Tone.Transport.bpm.value = BPM;
   }
@@ -104,6 +148,15 @@ export class SimpleAudioEngine {
     if (this.clapPattern.includes(step)) {
       this.triggerClap(time);
     }
+    // Trigger bass based on dynamic pattern
+    if (this.bassPattern.includes(step)) {
+      this.triggerBass(time);
+    }
+    // Trigger acid melody based on dynamic pattern
+    const acidStep = this.acidPattern.find(p => p.step === step);
+    if (acidStep && acidStep.note) {
+      this.triggerAcid(time, acidStep.note);
+    }
     // Always schedule step change callback for visual step indicator
     this.scheduleStepUpdate(time, step);
   }
@@ -114,6 +167,14 @@ export class SimpleAudioEngine {
 
   private triggerClap(time: number): void {
     this.clap?.triggerAttackRelease(NOTE_DURATION, time);
+  }
+
+  private triggerBass(time: number): void {
+    this.bass?.triggerAttackRelease("C1", NOTE_DURATION, time);
+  }
+
+  private triggerAcid(time: number, note: string): void {
+    this.acid?.triggerAttackRelease(note, "8n", time);
   }
 
   private scheduleKickUIUpdates(time: number): void {
@@ -169,6 +230,8 @@ export class SimpleAudioEngine {
     this.cleanupSequence();
     this.cleanupKick();
     this.cleanupClap();
+    this.cleanupBass();
+    this.cleanupAcid();
     this.reset();
   }
 
@@ -198,6 +261,33 @@ export class SimpleAudioEngine {
     if (this.clapVolume) {
       this.clapVolume.dispose();
       this.clapVolume = null;
+    }
+  }
+
+  private cleanupBass(): void {
+    if (this.bass) {
+      this.bass.dispose();
+      this.bass = null;
+    }
+    if (this.bassVolume) {
+      this.bassVolume.dispose();
+      this.bassVolume = null;
+    }
+  }
+
+  private cleanupAcid(): void {
+    if (this.acidFilter) {
+      this.acidFilter.stop();
+      this.acidFilter.dispose();
+      this.acidFilter = null;
+    }
+    if (this.acid) {
+      this.acid.dispose();
+      this.acid = null;
+    }
+    if (this.acidVolume) {
+      this.acidVolume.dispose();
+      this.acidVolume = null;
     }
   }
 
@@ -246,5 +336,69 @@ export class SimpleAudioEngine {
       this.clapVolume.volume.value = muted ? -Infinity : 0;
       console.log('Clap muted:', muted);
     }
+  }
+
+  setBassPattern(pattern: number[]): void {
+    this.bassPattern = pattern;
+    console.log('Updated bass pattern:', pattern);
+  }
+
+  getBassPattern(): number[] {
+    return this.bassPattern;
+  }
+
+  setBassMuted(muted: boolean): void {
+    if (this.bassVolume) {
+      this.bassVolume.volume.value = muted ? -Infinity : 0;
+      console.log('Bass muted:', muted);
+    }
+  }
+
+  setAcidPattern(pattern: { step: number; note: string | null }[]): void {
+    this.acidPattern = pattern;
+    console.log('Updated acid pattern:', pattern);
+  }
+
+  getAcidPattern(): { step: number; note: string | null }[] {
+    return this.acidPattern;
+  }
+
+  setAcidMuted(muted: boolean): void {
+    if (this.acidVolume) {
+      this.acidVolume.volume.value = muted ? -Infinity : 0;
+      console.log('Acid muted:', muted);
+    }
+  }
+
+  // Generate melody from wallet address
+  generateAcidMelodyFromWallet(walletAddress: string): { step: number; note: string | null }[] {
+    if (!walletAddress || walletAddress.length < 10) {
+      return []; // Return empty if no valid wallet
+    }
+
+    // Remove '0x' prefix and take first 16 characters for 16 steps
+    const hexDigits = walletAddress.slice(2, 18).toUpperCase();
+    
+    // Minor pentatonic scale mapping - one octave lower for better bass blend
+    const noteMapping: Record<string, string | null> = {
+      '0': 'C2', '1': 'Eb2', '2': 'F2', '3': 'G2', '4': 'Bb2',
+      '5': 'C3', '6': 'Eb3', '7': 'F3', '8': 'G3', '9': 'Bb3',
+      'A': 'C4', 'B': 'Eb4', 'C': 'F4',
+      'D': null, 'E': null, 'F': null  // Rests/pauses
+    };
+
+    const melody: { step: number; note: string | null }[] = [];
+    
+    for (let i = 0; i < Math.min(16, hexDigits.length); i++) {
+      const hexChar = hexDigits[i];
+      const note = noteMapping[hexChar] || null;
+      
+      // Only add to melody if there's a note (not a rest)
+      if (note) {
+        melody.push({ step: i, note });
+      }
+    }
+
+    return melody;
   }
 }

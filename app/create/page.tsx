@@ -86,12 +86,20 @@ function DrumSequencer({
   currentStep,
   kickPattern,
   clapPattern,
+  bassPattern,
+  acidPattern,
   showClapTrack,
+  showBassTrack,
+  showAcidTrack,
 }: {
   currentStep: number;
   kickPattern: number[];
   clapPattern?: number[];
+  bassPattern?: number[];
+  acidPattern?: { step: number; note: string | null }[];
   showClapTrack?: boolean;
+  showBassTrack?: boolean;
+  showAcidTrack?: boolean;
 }) {
   const steps = Array.from({ length: 16 }, (_, i) => i);
 
@@ -157,6 +165,71 @@ function DrumSequencer({
           })}
         </div>
       )}
+
+      {/* Bass track */}
+      {showBassTrack && bassPattern && (
+        <div
+          className="flex gap-1 w-full max-w-full"
+          style={{ gap: "min(0.5rem, calc((100vw - 2rem) / 32))" }}
+        >
+          {steps.map((step) => {
+            const hasBass = bassPattern.includes(step);
+            const isCurrentStep = step === currentStep % 16;
+
+            return (
+              <div
+                key={step}
+                className={`rounded-[5%] cursor-pointer transition-all opacity-0 animate-fade-in ${
+                  hasBass
+                    ? "hover:brightness-110"
+                    : "hover:bg-opacity-30"
+                } ${isCurrentStep ? "ring-2 ring-white" : ""}`}
+                style={{
+                  animationDelay: `${step * 50}ms`,
+                  animationFillMode: "forwards",
+                  width: "min(2rem, calc((100vw - 2rem) / 20))",
+                  height: "min(2rem, calc((100vw - 2rem) / 20))",
+                  flexShrink: 0,
+                  backgroundColor: hasBass ? "#b6f569" : "rgba(182, 245, 105, 0.2)",
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* Acid track */}
+      {showAcidTrack && acidPattern && (
+        <div
+          className="flex gap-1 w-full max-w-full"
+          style={{ gap: "min(0.5rem, calc((100vw - 2rem) / 32))" }}
+        >
+          {steps.map((step) => {
+            const acidNote = acidPattern.find(p => p.step === step);
+            const hasAcid = !!acidNote?.note;
+            const isCurrentStep = step === currentStep % 16;
+
+            return (
+              <div
+                key={step}
+                className={`rounded-[5%] cursor-pointer transition-all opacity-0 animate-fade-in ${
+                  hasAcid
+                    ? "hover:brightness-110"
+                    : "hover:bg-opacity-30"
+                } ${isCurrentStep ? "ring-2 ring-white" : ""}`}
+                style={{
+                  animationDelay: `${step * 50}ms`,
+                  animationFillMode: "forwards",
+                  width: "min(2rem, calc((100vw - 2rem) / 20))",
+                  height: "min(2rem, calc((100vw - 2rem) / 20))",
+                  flexShrink: 0,
+                  backgroundColor: hasAcid ? "#fea8cd" : "rgba(254, 168, 205, 0.2)",
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -185,16 +258,23 @@ export default function CreatePage() {
     null,
   );
   const [isLoadingData, setIsLoadingData] = useState(false);
-  const [kickTrackData, setKickTrackData] = useState<TrackData | null>(null);
   const [kickPattern, setKickPattern] = useState<number[]>([0, 4, 8, 12]); // Default pattern
   
   // Clap track state
   const [showClapTrack, setShowClapTrack] = useState(false);
   const [clapPattern, setClapPattern] = useState<number[]>([4, 12]); // Basic clap on beats 2 and 4
+  
+  // Bass track state
+  const [showBassTrack, setShowBassTrack] = useState(false);
+  const [bassPattern, setBassPattern] = useState<number[]>([0, 2, 8, 10]); // Simple bass pattern
+  
+  // Acid track state
+  const [showAcidTrack, setShowAcidTrack] = useState(false);
+  const [acidPattern, setAcidPattern] = useState<{ step: number; note: string | null }[]>([]); // Acid melody pattern
   const [showNextButton, setShowNextButton] = useState(false);
   
   // Progression state - tracks which stage we're at
-  const [progressionStage, setProgressionStage] = useState<'kick-educational' | 'kick-personal' | 'clap-educational' | 'clap-personal' | 'complete'>('kick-educational');
+  const [progressionStage, setProgressionStage] = useState<'kick-educational' | 'kick-personal' | 'clap-educational' | 'clap-personal' | 'bass-educational' | 'bass-personal' | 'acid-educational' | 'acid-personal' | 'complete'>('kick-educational');
 
   // Cleanup audio engine on unmount
   useEffect(() => {
@@ -240,6 +320,21 @@ export default function CreatePage() {
     [],
   );
 
+  const generateBassPattern = useCallback(
+    (tokenCount: number): number[] => {
+      if (tokenCount === 0 || tokenCount <= 5) {
+        return [0, 2, 8, 10]; // Simple bass on root notes
+      } else if (tokenCount <= 10) {
+        return [0, 2, 4, 8, 10, 12]; // Add more hits
+      } else if (tokenCount <= 20) {
+        return [0, 1, 2, 8, 9, 10]; // Add syncopation
+      } else {
+        return [0, 1, 2, 4, 6, 8, 9, 10, 12, 14]; // Complex bass line for portfolio diversity
+      }
+    },
+    [],
+  );
+
   const createKickTrackData = useCallback((pattern: number[]): TrackData => {
     return {
       pattern: pattern,
@@ -249,7 +344,8 @@ export default function CreatePage() {
     };
   }, []);
 
-  // Mock data for testing heavy user patterns (remove in production)
+
+  // Mock data for testing heavy user patterns (keep for demo purposes)
   const createMockHeavyUserData = (): UserDataSnapshot => ({
     farcaster: {
       fid: 12345,
@@ -265,7 +361,7 @@ export default function CreatePage() {
       added: true,
     },
     wallet: {
-      address: address || "0x1234567890123456789012345678901234567890",
+      address: address || "0x1234567890123456789012345678901234567890", // Use real address
       isConnected: true,
       balance: "2.5",
       chainId: 8453,
@@ -295,9 +391,8 @@ export default function CreatePage() {
     try {
       console.log("Fetching user data for personalized track generation...");
 
-      // Use mock data for testing (remove in production)
+      // Use mock data for demo, but with real wallet address for acid melody
       const snapshot = createMockHeavyUserData();
-      // For real data, use: const snapshot = await dataFetcher.fetchUserSnapshot(context, address);
       setUserSnapshot(snapshot);
 
       // Generate kick pattern based on transaction count
@@ -305,9 +400,8 @@ export default function CreatePage() {
       const generatedPattern = generateKickPattern(txCount);
       setKickPattern(generatedPattern);
 
-      // Create track data structure
-      const trackData = createKickTrackData(generatedPattern);
-      setKickTrackData(trackData);
+      // Create track data structure (for future use if needed)
+      createKickTrackData(generatedPattern);
 
       console.log(
         `Generated kick pattern for ${txCount} transactions:`,
@@ -323,7 +417,7 @@ export default function CreatePage() {
       // Use default pattern on error
       const defaultPattern = [0, 4, 8, 12];
       setKickPattern(defaultPattern);
-      setKickTrackData(createKickTrackData(defaultPattern));
+      createKickTrackData(defaultPattern);
 
       // Update audio engine with default pattern if initialized
       if (audioEngineRef.current) {
@@ -342,13 +436,13 @@ export default function CreatePage() {
     const txCount = userSnapshot.onchain.transactionCount || 0;
 
     if (txCount === 0) {
-      return "No onchain transactions found - you're keeping the standard 4/4 kick. Welcome to web3!";
+      return "Because you have no onchain transactions, you're keeping the standard 4/4 kick. Welcome to web3!";
     } else if (txCount <= 25) {
-      return `With ${txCount} transactions, we're giving you an extra kick!`;
+      return `Because you have made ${txCount} transactions, you get an extra anticipation kick!`;
     } else if (txCount <= 100) {
-      return `${txCount} transactions show you're active - upgrading to a double-hit kick pattern!`;
+      return `Because you have made ${txCount} transactions, you get an upgraded double-hit kick pattern!`;
     } else {
-      return `${txCount} transactions make you a power user - you get the most complex syncopated kick!`;
+      return `Because you have made ${txCount} transactions, you get the most complex syncopated kick!`;
     }
   }, [userSnapshot]);
 
@@ -358,15 +452,40 @@ export default function CreatePage() {
     }
     const followerCount = userSnapshot.farcaster.followerCount || 0;
     if (followerCount === 0) {
-      return "You're keeping the standard clap on beats 2 and 4";
+      return "Because you have no followers yet, you're keeping the standard clap on beats 2 and 4";
     } else if (followerCount <= 50) {
-      return `${followerCount} followers give you an anticipation clap!`;
+      return `Because you have ${followerCount} followers, you get an anticipation clap pattern!`;
     } else if (followerCount <= 200) {
-      return `${followerCount} followers unlock syncopated clap patterns!`;
+      return `Because you have ${followerCount} followers, you get syncopated clap patterns!`;
     } else {
-      return `${followerCount} followers make you an influencer - you get complex rhythm claps!`;
+      return `Because you have ${followerCount} followers, you get complex influencer-level rhythm claps!`;
     }
   }, [userSnapshot]);
+
+  const getPersonalBassMessage = useCallback((): string => {
+    if (!userSnapshot) {
+      return "You're keeping the simple bass line";
+    }
+    const tokenCount = userSnapshot.onchain.tokenCount || 0;
+    if (tokenCount === 0 || tokenCount <= 5) {
+      return `Because you hold ${tokenCount} tokens, you're keeping the simple bass foundation`;
+    } else if (tokenCount <= 10) {
+      return `Because you hold ${tokenCount} tokens in your portfolio, you get more bass hits!`;
+    } else if (tokenCount <= 20) {
+      return `Because you hold ${tokenCount} diverse tokens, you get an upgraded syncopated bass line!`;
+    } else {
+      return `Because you hold ${tokenCount} tokens, you get the most complex DeFi native bass line!`;
+    }
+  }, [userSnapshot]);
+
+  const getPersonalAcidMessage = useCallback((): string => {
+    if (!address) {
+      return "Your wallet creates a unique acid melody";
+    }
+    const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
+    const hexSection = address.slice(2, 18); // First 16 hex chars after 0x
+    return `Because your wallet address is ${shortAddress}, you get a completely unique acid melody! Each hex character (${hexSection}) maps to notes in a minor scale, with D/E/F creating musical rests.`;
+  }, [address]);
 
   const handleNextClick = useCallback(() => {
     console.log('Next button clicked, current stage:', progressionStage);
@@ -433,7 +552,7 @@ export default function CreatePage() {
       }, 300);
     } else if (progressionStage === 'clap-personal') {
       // Show personal clap message and upgrade pattern
-      setProgressionStage('complete');
+      setProgressionStage('bass-educational');
       setTimeout(() => {
         setSequencerTextVisible(false);
         setTimeout(() => {
@@ -453,10 +572,113 @@ export default function CreatePage() {
               audioEngineRef.current?.setClapPattern(personalizedClapPattern);
             }, 500);
           }
+          
+          // Show Next button for bass progression
+          setTimeout(() => {
+            setShowNextButton(true);
+          }, 2000);
+        }, 300);
+      }, 300);
+    } else if (progressionStage === 'bass-educational') {
+      // Start bass track progression
+      setProgressionStage('bass-personal');
+      setTimeout(() => {
+        // 1. Change title and start with basic bass pattern
+        setShowBassTrack(true);
+        const basicBassPattern = [0, 2, 8, 10]; // Simple bass pattern
+        setBassPattern(basicBassPattern);
+        audioEngineRef.current?.setBassPattern(basicBassPattern);
+        // Unmute the bass track now that we're introducing it
+        audioEngineRef.current?.setBassMuted(false);
+        
+        // 2. Show educational text
+        setTimeout(() => {
+          setSequencerTextVisible(false);
+          setTimeout(() => {
+            setSequencerText("The bass provides the foundation and groove");
+            setSequencerTextVisible(true);
+            
+            // Show Next button for bass personalization
+            setTimeout(() => {
+              setShowNextButton(true);
+            }, 2000);
+          }, 300);
+        }, 500);
+      }, 300);
+    } else if (progressionStage === 'bass-personal') {
+      // Show personal bass message and upgrade pattern
+      setProgressionStage('acid-educational');
+      setTimeout(() => {
+        setSequencerTextVisible(false);
+        setTimeout(() => {
+          const personalBassText = getPersonalBassMessage();
+          setSequencerText(personalBassText);
+          setSequencerTextVisible(true);
+          
+          // Upgrade bass pattern based on user data - but only if earned
+          const basicBassPattern = [0, 2, 8, 10]; // Basic bass
+          const userTokenCount = userSnapshot?.onchain.tokenCount || 0;
+          const personalizedBassPattern = generateBassPattern(userTokenCount);
+          
+          // Only upgrade if it's different from basic
+          if (JSON.stringify(personalizedBassPattern) !== JSON.stringify(basicBassPattern)) {
+            setTimeout(() => {
+              setBassPattern(personalizedBassPattern);
+              audioEngineRef.current?.setBassPattern(personalizedBassPattern);
+            }, 500);
+          }
+          
+          // Show Next button for acid progression
+          setTimeout(() => {
+            setShowNextButton(true);
+          }, 2000);
+        }, 300);
+      }, 300);
+    } else if (progressionStage === 'acid-educational') {
+      // Start acid track progression
+      setProgressionStage('acid-personal');
+      setTimeout(() => {
+        // 1. Change title and show acid track
+        setShowAcidTrack(true);
+        
+        // 2. Generate melody from connected wallet address
+        if (address && audioEngineRef.current) {
+          console.log('Generating acid melody from wallet address:', address);
+          const generatedMelody = audioEngineRef.current.generateAcidMelodyFromWallet(address);
+          setAcidPattern(generatedMelody);
+          audioEngineRef.current.setAcidPattern(generatedMelody);
+          // Unmute the acid track now that we're introducing it
+          audioEngineRef.current.setAcidMuted(false);
+          console.log('Generated acid melody:', generatedMelody);
+        }
+        
+        // 3. Show educational text
+        setTimeout(() => {
+          setSequencerTextVisible(false);
+          setTimeout(() => {
+            setSequencerText("The acid melody adds character and soul");
+            setSequencerTextVisible(true);
+            
+            // Show Next button for acid personalization
+            setTimeout(() => {
+              setShowNextButton(true);
+            }, 2000);
+          }, 300);
+        }, 500);
+      }, 300);
+    } else if (progressionStage === 'acid-personal') {
+      // Show personal acid message
+      setProgressionStage('complete');
+      setTimeout(() => {
+        setSequencerTextVisible(false);
+        setTimeout(() => {
+          const personalAcidText = getPersonalAcidMessage();
+          setSequencerText(personalAcidText);
+          setSequencerTextVisible(true);
         }, 300);
       }, 300);
     }
-  }, [progressionStage, generateKickPattern, getPersonalKickMessage, generateClapPattern, getPersonalClapMessage, userSnapshot]);
+  }, [progressionStage, generateKickPattern, getPersonalKickMessage, generateClapPattern, getPersonalClapMessage, generateBassPattern, getPersonalBassMessage, getPersonalAcidMessage, userSnapshot, address]);
 
   const animateSquareTransition = useCallback(() => {
     console.log("Animation triggered - simple transition");
@@ -657,9 +879,9 @@ export default function CreatePage() {
                 {/* Title */}
                 <div className="absolute top-24 left-0 right-0 flex justify-center z-20">
                   <h1 className={`text-3xl font-bold font-[var(--font-orbitron)] tracking-wide ${
-                    showClapTrack ? 'text-[#ffd12f]' : 'text-blue-600'
+                    showAcidTrack ? 'text-[#fea8cd]' : showBassTrack ? 'text-[#b6f569]' : showClapTrack ? 'text-[#ffd12f]' : 'text-blue-600'
                   }`}>
-                    {showClapTrack ? 'Now let\'s add a clap' : 'It starts with a kick'}
+                    {showAcidTrack ? 'Your wallet\'s melody' : showBassTrack ? 'Finally, let\'s add bass' : showClapTrack ? 'Now let\'s add a clap' : 'It starts with a kick'}
                   </h1>
                 </div>
 
@@ -690,7 +912,11 @@ export default function CreatePage() {
                       currentStep={currentStep}
                       kickPattern={kickPattern}
                       clapPattern={clapPattern}
+                      bassPattern={bassPattern}
+                      acidPattern={acidPattern}
                       showClapTrack={showClapTrack}
+                      showBassTrack={showBassTrack}
+                      showAcidTrack={showAcidTrack}
                     />
                   )}
 
@@ -704,7 +930,7 @@ export default function CreatePage() {
                           boxShadow: "0 0 20px rgba(59, 130, 246, 0.3)",
                         }}
                       >
-                        {progressionStage === 'kick-educational' || progressionStage === 'clap-educational' ? 'Customize' : 'Next'}
+                        {progressionStage === 'kick-educational' || progressionStage === 'clap-educational' || progressionStage === 'bass-educational' || progressionStage === 'acid-educational' ? 'Customize' : 'Next'}
                       </button>
                     </div>
                   )}
