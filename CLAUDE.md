@@ -103,6 +103,7 @@ There are no test scripts defined in package.json. Tests would need to be set up
 - All audio tracks are managed through a singleton `audioEngine` instance
 - Effects and volume changes are applied in real-time during playback
 - Pattern data is passed via callback functions to ensure real-time updates
+- **CRITICAL**: The beat must ALWAYS continue playing during all animations and transitions - never stop the audio engine during UI changes
 
 ### Frame Integration
 - App supports Farcaster Frame embedding with MiniKit

@@ -8,8 +8,8 @@ type BeatIntensityCallback = (intensity: number) => void;
 const BPM = 128;
 const KICK_NOTE = "C1";
 const NOTE_DURATION = "8n";
-const BEAT_PATTERN = [0, 1, 2, 3];
-const SUBDIVISION = "4n";
+const BEAT_PATTERN = Array.from({ length: 16 }, (_, i) => i); // All 16 steps
+const SUBDIVISION = "16n"; // 16th notes for 16 steps
 
 // Beat intensity decay timing (in milliseconds)
 const BEAT_INTENSITY_DECAY = [
@@ -27,6 +27,7 @@ export class SimpleAudioEngine {
   private isPlaying = false;
   private onStepCallback?: StepChangeCallback;
   private onBeatIntensityCallback?: BeatIntensityCallback;
+  private kickPattern: number[] = [0, 4, 8, 12]; // Default pattern
 
   async initialize(
     onStepChange?: StepChangeCallback,
@@ -74,23 +75,31 @@ export class SimpleAudioEngine {
   }
 
   private handleSequenceStep(time: number, step: number): void {
-    this.triggerKick(time);
-    this.scheduleUIUpdates(time, step);
+    // Trigger kick based on dynamic pattern
+    if (this.kickPattern.includes(step)) {
+      this.triggerKick(time);
+      // Only schedule beat intensity decay on kick hits
+      this.scheduleKickUIUpdates(time);
+    }
+    // Always schedule step change callback for visual step indicator
+    this.scheduleStepUpdate(time, step);
   }
 
   private triggerKick(time: number): void {
     this.kick?.triggerAttackRelease(KICK_NOTE, NOTE_DURATION, time);
   }
 
-  private scheduleUIUpdates(time: number, step: number): void {
-    // Schedule step change callback
-    Tone.Draw.schedule(() => {
-      this.onStepCallback?.(step);
-    }, time);
-    
-    // Schedule beat intensity decay
+  private scheduleKickUIUpdates(time: number): void {
+    // Schedule beat intensity decay only on kick hits
     Tone.Draw.schedule(() => {
       this.scheduleBeatIntensityDecay();
+    }, time);
+  }
+
+  private scheduleStepUpdate(time: number, step: number): void {
+    // Schedule step change callback for all steps
+    Tone.Draw.schedule(() => {
+      this.onStepCallback?.(step);
     }, time);
   }
 
@@ -162,5 +171,14 @@ export class SimpleAudioEngine {
 
   getIsInitialized(): boolean {
     return this.isInitialized;
+  }
+
+  setKickPattern(pattern: number[]): void {
+    this.kickPattern = pattern;
+    console.log('Updated kick pattern:', pattern);
+  }
+
+  getKickPattern(): number[] {
+    return this.kickPattern;
   }
 }
