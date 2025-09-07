@@ -24,8 +24,7 @@ export class SimpleAudioEngine {
   private kick: Tone.MembraneSynth | null = null;
   private snare: Tone.NoiseSynth | null = null;
   private bass: Tone.Synth | null = null;
-  private acid: Tone.Synth | null = null;
-  private acidFilter: Tone.AutoFilter | null = null;
+  private acid: Tone.MonoSynth | null = null;
   private kickVolume: Tone.Volume | null = null;
   private snareVolume: Tone.Volume | null = null;
   private bassVolume: Tone.Volume | null = null;
@@ -37,8 +36,10 @@ export class SimpleAudioEngine {
   private onBeatIntensityCallback?: BeatIntensityCallback;
   private kickPattern: number[] = [0, 4, 8, 12]; // Default pattern
   private snarePattern: number[] = [4, 12]; // Default snare pattern
-  private bassPattern: number[] = [0, 2, 8, 10]; // Simple bass pattern
-  private acidPattern: { step: number; note: string | null }[] = []; // Acid melody pattern with notes
+  private bassPattern: number[] = []; // Start empty - will be set when bass track is introduced
+  private bassNotes: string[] = ["D1", "D1", "F1", "G1"]; // Note pattern: [D1, D1, F1, G1] repeated 2 times within 16 steps
+  // Acid pattern - starts empty, will be set when acid track is introduced
+  private acidPattern: { step: number; note: string | null }[] = [];
   private currentSteps: number = DEFAULT_STEPS; // Current number of steps in sequence
 
   async initialize(
@@ -91,38 +92,43 @@ export class SimpleAudioEngine {
   }
 
   private createBass(): void {
-    this.bassVolume = new Tone.Volume(-Infinity).toDestination(); // Start muted
+    this.bassVolume = new Tone.Volume(-Infinity).toDestination(); // Start muted, will be set to -8 dB when introduced
     this.bass = new Tone.Synth({
-      oscillator: { type: "sine" },
+      oscillator: { type: "sawtooth" }, // Changed from sine to sawtooth
       envelope: { 
-        attack: 0.02, 
-        decay: 0.2, 
-        sustain: 0.4, 
-        release: 0.6 
+        attack: 0.01,  // Changed from 0.02 to 0.01s
+        decay: 0.1,    // Changed from 0.2 to 0.1s
+        sustain: 0.5,  // Changed from 0.4 to 0.5
+        release: 0.4   // Changed from 0.6 to 0.4s
       }
     }).connect(this.bassVolume);
   }
 
   private createAcid(): void {
-    this.acidVolume = new Tone.Volume(-Infinity).toDestination(); // Start muted
-    this.acidFilter = new Tone.AutoFilter({
-      frequency: "8n",
-      baseFrequency: 200,
-      octaves: 3
-    });
+    this.acidVolume = new Tone.Volume(-Infinity).toDestination(); // Start muted, will be set to -10 dB when introduced
     
-    this.acid = new Tone.Synth({
-      oscillator: { type: "square" },
-      envelope: { 
-        attack: 0.01, 
-        decay: 0.1, 
-        sustain: 0.3, 
-        release: 0.2 
+    this.acid = new Tone.MonoSynth({
+      oscillator: { type: "sawtooth" }, // Sawtooth wave as specified
+      envelope: {
+        attack: 0.01,  // As specified
+        decay: 0.2,    // As specified  
+        sustain: 0.3,  // As specified
+        release: 0.2   // As specified
+      },
+      filterEnvelope: {
+        attack: 0.01,      // As specified
+        decay: 0.2,        // As specified
+        sustain: 0.4,      // As specified
+        release: 0.2,      // As specified
+        baseFrequency: 200, // As specified
+        octaves: 3         // As specified
+      },
+      filter: {
+        Q: 6,              // As specified
+        type: "lowpass",   // As specified
+        rolloff: -24       // As specified
       }
-    }).connect(this.acidFilter).connect(this.acidVolume);
-    
-    // Start the filter LFO
-    this.acidFilter.start();
+    }).connect(this.acidVolume);
   }
 
   private setupTempo(): void {
@@ -151,8 +157,12 @@ export class SimpleAudioEngine {
       this.triggerSnare(time);
     }
     // Trigger bass based on dynamic pattern
-    if (this.bassPattern.includes(step)) {
-      this.triggerBass(time);
+    const bassIndex = this.bassPattern.indexOf(step);
+    if (bassIndex !== -1) {
+      // Calculate which note to play based on the 4-note repeating pattern
+      const noteIndex = bassIndex % 4;
+      const note = this.bassNotes[noteIndex];
+      this.triggerBass(time, note);
     }
     // Trigger acid melody based on dynamic pattern
     const acidStep = this.acidPattern.find(p => p.step === step);
@@ -171,12 +181,12 @@ export class SimpleAudioEngine {
     this.snare?.triggerAttackRelease(NOTE_DURATION, time);
   }
 
-  private triggerBass(time: number): void {
-    this.bass?.triggerAttackRelease("C1", NOTE_DURATION, time);
+  private triggerBass(time: number, note: string = "C1"): void {
+    this.bass?.triggerAttackRelease(note, NOTE_DURATION, time, 0.9); // 0.9 velocity as specified
   }
 
   private triggerAcid(time: number, note: string): void {
-    this.acid?.triggerAttackRelease(note, "8n", time);
+    this.acid?.triggerAttackRelease(note, "8n", time, 0.8); // 0.8 velocity as specified
   }
 
   private scheduleKickUIUpdates(time: number): void {
@@ -280,11 +290,6 @@ export class SimpleAudioEngine {
   }
 
   private cleanupAcid(): void {
-    if (this.acidFilter) {
-      this.acidFilter.stop();
-      this.acidFilter.dispose();
-      this.acidFilter = null;
-    }
     if (this.acid) {
       this.acid.dispose();
       this.acid = null;
@@ -344,7 +349,9 @@ export class SimpleAudioEngine {
 
   setBassPattern(pattern: number[]): void {
     this.bassPattern = pattern;
-    console.log('Updated bass pattern:', pattern);
+    // When bass pattern is set, also create a note map for the D1-F1-G1 progression
+    // The notes will cycle through [D1, D1, F1, G1] for each step in the pattern
+    console.log('Updated bass pattern:', pattern, 'with D1-F1-G1 note cycling');
   }
 
   getBassPattern(): number[] {
@@ -353,7 +360,7 @@ export class SimpleAudioEngine {
 
   setBassMuted(muted: boolean): void {
     if (this.bassVolume) {
-      this.bassVolume.volume.value = muted ? -Infinity : 0;
+      this.bassVolume.volume.value = muted ? -Infinity : -8; // Return to -8 dB when unmuted
       console.log('Bass muted:', muted);
     }
   }
@@ -363,13 +370,23 @@ export class SimpleAudioEngine {
     console.log('Updated acid pattern:', pattern);
   }
 
+  // Helper method to convert a simple step pattern to acid melody with D2-F2-G2-A2-C3 notes
+  setAcidPatternFromSteps(steps: number[]): void {
+    const acidNotes = ["D2", "F2", "G2", "A2", "C3"];
+    this.acidPattern = steps.map((step, index) => ({
+      step: step,
+      note: acidNotes[index % acidNotes.length]
+    }));
+    console.log('Created acid melody from steps:', steps, 'with notes:', this.acidPattern);
+  }
+
   getAcidPattern(): { step: number; note: string | null }[] {
     return this.acidPattern;
   }
 
   setAcidMuted(muted: boolean): void {
     if (this.acidVolume) {
-      this.acidVolume.volume.value = muted ? -Infinity : 0;
+      this.acidVolume.volume.value = muted ? -Infinity : -10; // Return to -10 dB when unmuted
       console.log('Acid muted:', muted);
     }
   }
