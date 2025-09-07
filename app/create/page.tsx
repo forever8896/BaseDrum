@@ -88,12 +88,14 @@ function DrumSequencer({
   showSnareTrack,
   showBassTrack,
   showAcidTrack,
+  showLeadTrack,
 }: {
   currentStep: number;
   songData: SongData;
   showSnareTrack?: boolean;
   showBassTrack?: boolean;
   showAcidTrack?: boolean;
+  showLeadTrack?: boolean;
 }) {
   const steps = Array.from({ length: 16 }, (_, i) => i);
   
@@ -103,6 +105,8 @@ function DrumSequencer({
   const bassPattern = songData.tracks.bass?.pattern || [];
   const acidPattern = songData.tracks.acid?.pattern || [];
   const acidNotes = songData.tracks.acid?.notes || [];
+  const leadPattern = songData.tracks.lead?.pattern || [];
+  const leadNotes = songData.tracks.lead?.notes || [];
 
   return (
     <div className="w-full px-10">
@@ -231,6 +235,38 @@ function DrumSequencer({
           })}
         </div>
       )}
+
+      {/* Lead track */}
+      {showLeadTrack && leadPattern && (
+        <div
+          className="flex gap-1 justify-center"
+          style={{ gap: "min(0.5rem, calc((100vw - 160px) / 32))" }}
+        >
+          {steps.map((step) => {
+            const hasLead = leadPattern.includes(step) && leadNotes[step];
+            const isCurrentStep = step === currentStep % 16;
+
+            return (
+              <div
+                key={step}
+                className={`rounded-[5%] cursor-pointer transition-all opacity-0 animate-fade-in ${
+                  hasLead
+                    ? "hover:brightness-110"
+                    : "hover:bg-opacity-30"
+                } ${isCurrentStep ? "ring-2 ring-white" : ""}`}
+                style={{
+                  animationDelay: `${step * 50}ms`,
+                  animationFillMode: "forwards",
+                  width: "min(2rem, calc((100vw - 2rem) / 20))",
+                  height: "min(2rem, calc((100vw - 2rem) / 20))",
+                  flexShrink: 0,
+                  backgroundColor: hasLead ? "#fc401f" : "rgba(252, 64, 31, 0.2)",
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
       </div>
     </div>
   );
@@ -309,6 +345,12 @@ export default function CreatePage() {
           notes: [],
           muted: true, // Start muted
           volume: -16
+        },
+        lead: {
+          pattern: [],
+          notes: [],
+          muted: true, // Start muted
+          volume: -12
         }
       }
     };
@@ -318,10 +360,11 @@ export default function CreatePage() {
   const [showSnareTrack, setShowSnareTrack] = useState(false);
   const [showBassTrack, setShowBassTrack] = useState(false);
   const [showAcidTrack, setShowAcidTrack] = useState(false);
+  const [showLeadTrack, setShowLeadTrack] = useState(false);
   const [showNextButton, setShowNextButton] = useState(false);
   
   // Progression state - tracks which stage we're at
-  const [progressionStage, setProgressionStage] = useState<'kick-educational' | 'kick-personal' | 'snare-educational' | 'snare-personal' | 'bass-educational' | 'bass-personal' | 'acid-educational' | 'acid-personal' | 'ai-ready' | 'ai-processing' | 'complete'>('kick-educational');
+  const [progressionStage, setProgressionStage] = useState<'kick-educational' | 'kick-personal' | 'snare-educational' | 'snare-personal' | 'bass-educational' | 'bass-personal' | 'acid-educational' | 'acid-personal' | 'lead-educational' | 'lead-personal' | 'complete'>('kick-educational');
   
   // AI processing state
   const [isAIProcessing, setIsAIProcessing] = useState(false);
@@ -330,6 +373,10 @@ export default function CreatePage() {
   // Mint state
   const [showMintButton, setShowMintButton] = useState(false);
   const [mintResult, setMintResult] = useState<{ tokenId: string; shareableURL: string; transactionURL: string } | null>(null);
+  
+  // Avatar analysis modal state
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [avatarAnalysisStage, setAvatarAnalysisStage] = useState<'original' | 'quantizing' | 'analyzing' | 'complete'>('original');
 
   // Export song data function (for demonstration)
   const exportSongData = useCallback(() => {
@@ -570,6 +617,135 @@ export default function CreatePage() {
     const hexSection = demoAddress.slice(2, 18); // First 16 hex chars after 0x
     return `We've used your unique wallet address ${shortAddress} to map each hex character (${hexSection}) to a minor scale, with D/E/F creating musical rests.`;
   }, [address]);
+  
+  // Avatar analysis functions
+  const analyzeAvatarColors = useCallback(async (imageUrl: string): Promise<string[]> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve([]);
+          return;
+        }
+        
+        // Set canvas to 8x8 for quantization
+        canvas.width = 8;
+        canvas.height = 8;
+        
+        // Draw the image scaled to 8x8
+        ctx.drawImage(img, 0, 0, 8, 8);
+        
+        // Extract pixel data
+        const imageData = ctx.getImageData(0, 0, 8, 8);
+        const data = imageData.data;
+        
+        // Convert each pixel to a hex color
+        const colors: string[] = [];
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+          colors.push(hex);
+        }
+        
+        resolve(colors);
+      };
+      img.src = imageUrl;
+    });
+  }, []);
+  
+  const colorToNote = useCallback((color: string): string => {
+    // Convert hex color to hue value (0-360)
+    const hex = color.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16) / 255;
+    const g = parseInt(hex.substring(2, 4), 16) / 255;
+    const b = parseInt(hex.substring(4, 6), 16) / 255;
+    
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const delta = max - min;
+    
+    let hue = 0;
+    if (delta !== 0) {
+      if (max === r) hue = ((g - b) / delta) % 6;
+      else if (max === g) hue = (b - r) / delta + 2;
+      else hue = (r - g) / delta + 4;
+    }
+    hue *= 60;
+    if (hue < 0) hue += 360;
+    
+    // Map hue to pentatonic scale notes (C, D, E, G, A)
+    const pentatonicNotes = ['C4', 'D4', 'E4', 'G4', 'A4'];
+    const noteIndex = Math.floor((hue / 360) * pentatonicNotes.length);
+    return pentatonicNotes[noteIndex];
+  }, []);
+  
+  const startAvatarAnalysis = useCallback(async () => {
+    setShowAvatarModal(true);
+    setAvatarAnalysisStage('original');
+    
+    // After 2 seconds, start quantizing
+    setTimeout(() => {
+      setAvatarAnalysisStage('quantizing');
+      
+      // After 2 seconds, start analyzing
+      setTimeout(async () => {
+        setAvatarAnalysisStage('analyzing');
+        
+        // Analyze the avatar colors
+        const colors = await analyzeAvatarColors('/jesse.png');
+        const notes = colors.map(colorToNote);
+        
+        // Create lead pattern from avatar analysis
+        const avatarLeadPattern: number[] = [];
+        const avatarLeadNotes = new Array(16).fill("");
+        
+        // Use first 16 colors/notes for the pattern
+        for (let i = 0; i < Math.min(16, colors.length); i++) {
+          if (notes[i]) {
+            avatarLeadPattern.push(i);
+            avatarLeadNotes[i] = notes[i];
+          }
+        }
+        
+        // Update song data with avatar-generated pattern
+        updateSongData(current => ({
+          ...current,
+          tracks: {
+            ...current.tracks,
+            lead: {
+              ...current.tracks.lead,
+              pattern: avatarLeadPattern,
+              notes: avatarLeadNotes,
+            }
+          }
+        }));
+        
+        // Update audio engine
+        if (audioEngineRef.current) {
+          const leadMelodyData = avatarLeadPattern.map(step => ({
+            step,
+            notes: [avatarLeadNotes[step]].filter(Boolean)
+          }));
+          audioEngineRef.current.setLeadPattern(leadMelodyData);
+          audioEngineRef.current.setLeadMuted(false); // Unmute the lead track
+        }
+        
+        setTimeout(() => {
+          setAvatarAnalysisStage('complete');
+          
+          // Close modal after showing complete stage
+          setTimeout(() => {
+            setShowAvatarModal(false);
+          }, 2000);
+        }, 2000);
+      }, 2000);
+    }, 2000);
+  }, [analyzeAvatarColors, colorToNote, updateSongData]);
 
   const sendToAIProducer = useCallback(async () => {
     try {
@@ -945,8 +1121,8 @@ export default function CreatePage() {
         }, 500);
       }, 300);
     } else if (progressionStage === 'acid-personal') {
-      // Show personal acid message, then transition to AI ready stage
-      setProgressionStage('complete');
+      // Show personal acid message, then transition to lead track
+      setProgressionStage('lead-educational');
       setTimeout(() => {
         setSequencerTextVisible(false);
         setTimeout(() => {
@@ -954,19 +1130,59 @@ export default function CreatePage() {
           setSequencerText(personalAcidText);
           setSequencerTextVisible(true);
           
-          // After showing personal message, go straight to minting
+          // Show Next button for lead progression
           setTimeout(() => {
-            setSequencerTextVisible(false);
-            setTimeout(() => {
-              setSequencerText("🎵 Your personalized techno track is complete! Ready to mint as an NFT? 🎵");
-              setSequencerTextVisible(true);
-              
-              // Show mint button instead of next button
-              setTimeout(() => {
-                setShowMintButton(true);
-              }, 1000);
-            }, 300);
+            setShowNextButton(true);
           }, 3000);
+        }, 300);
+      }, 300);
+    } else if (progressionStage === 'lead-educational') {
+      // Start avatar analysis FIRST - before showing any lead track UI
+      setProgressionStage('lead-personal');
+      setTimeout(() => {
+        // 1. Show educational text about the lead track
+        setSequencerTextVisible(false);
+        setTimeout(() => {
+          setSequencerText("The lead adds harmony and emotional depth. Let's create yours from your avatar...");
+          setSequencerTextVisible(true);
+          
+          // 2. Start avatar analysis modal after 2 seconds
+          setTimeout(async () => {
+            await startAvatarAnalysis();
+            
+            // 3. After modal completes (8 seconds), THEN show the visual and audio result
+            setTimeout(() => {
+              // Show the lead track visualization
+              setShowLeadTrack(true);
+              
+              // Update sequencer text to show the result
+              setSequencerTextVisible(false);
+              setTimeout(() => {
+                setSequencerText("🎵 Your avatar's colors have been mapped to musical harmony! 🎵");
+                setSequencerTextVisible(true);
+                
+                // Show Next button for completion
+                setTimeout(() => {
+                  setShowNextButton(true);
+                }, 2000);
+              }, 300);
+            }, 8000); // Wait for full avatar analysis (8 seconds)
+          }, 2000);
+        }, 300);
+      }, 300);
+    } else if (progressionStage === 'lead-personal') {
+      // Lead track completion - transition to complete
+      setProgressionStage('complete');
+      setTimeout(() => {
+        setSequencerTextVisible(false);
+        setTimeout(() => {
+          setSequencerText("🎵 Your personalized techno track is complete! Ready to mint as an NFT? 🎵");
+          setSequencerTextVisible(true);
+          
+          // Show mint button
+          setTimeout(() => {
+            setShowMintButton(true);
+          }, 1000);
         }, 300);
       }, 300);
     } else if (progressionStage === 'ai-ready') {
@@ -1183,9 +1399,9 @@ export default function CreatePage() {
                 {/* Title */}
                 <div className="absolute top-24 left-0 right-0 flex justify-center z-20">
                   <h1 className={`text-3xl font-bold font-orbitron tracking-wide ${
-                    isPlayingAIVersion ? 'text-green-400' : showAcidTrack ? 'text-[#fea8cd]' : showBassTrack ? 'text-[#b6f569]' : showSnareTrack ? 'text-[#ffd12f]' : 'text-blue-600'
+                    isPlayingAIVersion ? 'text-green-400' : showLeadTrack ? 'text-[#fc401f]' : showAcidTrack ? 'text-[#fea8cd]' : showBassTrack ? 'text-[#b6f569]' : showSnareTrack ? 'text-[#ffd12f]' : 'text-blue-600'
                   }`}>
-                    {isPlayingAIVersion ? 'Your Complete Techno Track' : showAcidTrack ? 'Your wallet\'s melody' : showBassTrack ? 'Finally, let\'s add bass' : showSnareTrack ? 'Now let\'s add a snare' : 'It starts with a kick'}
+                    {isPlayingAIVersion ? 'Your Complete Techno Track' : showLeadTrack ? 'Your avatar\'s harmony' : showAcidTrack ? 'Your wallet\'s melody' : showBassTrack ? 'Finally, let\'s add bass' : showSnareTrack ? 'Now let\'s add a snare' : 'It starts with a kick'}
                   </h1>
                 </div>
 
@@ -1224,6 +1440,7 @@ export default function CreatePage() {
                       showSnareTrack={showSnareTrack}
                       showBassTrack={showBassTrack}
                       showAcidTrack={showAcidTrack}
+                      showLeadTrack={showLeadTrack}
                     />
                   )}
 
@@ -1333,6 +1550,82 @@ export default function CreatePage() {
           </>
         )}
       </div>
+      
+      {/* Avatar Analysis Modal */}
+      {showAvatarModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
+          <div className="bg-gray-900 rounded-lg p-8 max-w-md w-full mx-4 text-center">
+            <h2 className="text-2xl font-bold text-white mb-6 font-orbitron">Avatar Analysis</h2>
+            
+            {avatarAnalysisStage === 'original' && (
+              <div className="space-y-4">
+                <div className="text-gray-300 text-lg">Your original avatar:</div>
+                <img 
+                  src="/jesse.png" 
+                  alt="Avatar" 
+                  className="w-48 h-48 mx-auto rounded-lg"
+                />
+              </div>
+            )}
+            
+            {avatarAnalysisStage === 'quantizing' && (
+              <div className="space-y-4">
+                <div className="text-gray-300 text-lg">Quantizing to 8×8 grid...</div>
+                <div className="grid grid-cols-8 gap-1 w-48 h-48 mx-auto">
+                  {Array.from({ length: 64 }).map((_, i) => (
+                    <div 
+                      key={i}
+                      className="bg-blue-600 opacity-60 animate-pulse"
+                      style={{ 
+                        animationDelay: `${i * 20}ms`,
+                        aspectRatio: '1' 
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {avatarAnalysisStage === 'analyzing' && (
+              <div className="space-y-4">
+                <div className="text-gray-300 text-lg">Mapping colors to musical notes...</div>
+                <div className="grid grid-cols-8 gap-1 w-48 h-48 mx-auto">
+                  {Array.from({ length: 64 }).map((_, i) => {
+                    // Generate a pseudo-random color for each cell for demo
+                    const hue = (i * 137.5) % 360;
+                    const color = `hsl(${hue}, 60%, 50%)`;
+                    return (
+                      <div 
+                        key={i}
+                        className="flex items-center justify-center text-xs font-bold text-white shadow-lg animate-bounce"
+                        style={{ 
+                          backgroundColor: color,
+                          animationDelay: `${i * 30}ms`,
+                          aspectRatio: '1' 
+                        }}
+                      >
+                        ♪
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            
+            {avatarAnalysisStage === 'complete' && (
+              <div className="space-y-4">
+                <div className="text-green-400 text-lg font-bold">✅ Analysis Complete!</div>
+                <div className="text-gray-300">
+                  Your avatar has been transformed into a unique harmonic progression
+                </div>
+                <div className="text-sm text-gray-500">
+                  64 colors mapped to pentatonic scale
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

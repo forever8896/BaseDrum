@@ -25,15 +25,12 @@ export class SimpleAudioEngine {
   private snare: Tone.NoiseSynth | null = null;
   private bass: Tone.Synth | null = null;
   private acid: Tone.MonoSynth | null = null;
-  private pad: Tone.PolySynth | null = null;
-  private padFilter: Tone.Filter | null = null;
-  private padFilterLFO: Tone.LFO | null = null;
-  private padResonanceLFO: Tone.LFO | null = null;
+  private lead: Tone.PolySynth | null = null;
   private kickVolume: Tone.Volume | null = null;
   private snareVolume: Tone.Volume | null = null;
   private bassVolume: Tone.Volume | null = null;
   private acidVolume: Tone.Volume | null = null;
-  private padVolume: Tone.Volume | null = null;
+  private leadVolume: Tone.Volume | null = null;
   private sequence: Tone.Sequence | null = null;
   private isInitialized = false;
   private isPlaying = false;
@@ -45,8 +42,8 @@ export class SimpleAudioEngine {
   private bassNotes: string[] = ["D1", "D1", "F1", "G1"]; // Note pattern: [D1, D1, F1, G1] repeated 2 times within 16 steps
   // Acid pattern - starts empty, will be set when acid track is introduced
   private acidPattern: { step: number; note: string | null }[] = [];
-  // Motor City Pad pattern - starts empty, will be set when pad track is introduced
-  private padPattern: { step: number; chords: string[] }[] = [];
+  // Lead pattern - will be derived from avatar image (64 notes from 8x8 grid)
+  private leadPattern: { step: number; notes: string[] }[] = [];
   private currentSteps: number = DEFAULT_STEPS; // Current number of steps in sequence
 
   async initialize(
@@ -64,7 +61,7 @@ export class SimpleAudioEngine {
     this.createSnare();
     this.createBass();
     this.createAcid();
-    this.createMotorCityPad();
+    this.createLead();
     this.setupTempo();
     this.createSequence();
     
@@ -139,58 +136,29 @@ export class SimpleAudioEngine {
     }).connect(this.acidVolume);
   }
 
-  private createMotorCityPad(): void {
-    this.padVolume = new Tone.Volume(-Infinity).toDestination(); // Start muted, will be set to -12 dB when introduced
+  private createLead(): void {
+    this.leadVolume = new Tone.Volume(-Infinity).toDestination(); // Start muted, will be set to -12 dB when introduced
     
-    // Create the low-pass filter with LFO modulation
-    this.padFilter = new Tone.Filter({
-      frequency: 1000,    // Warm, not too bright
-      Q: 2,              // Gentle resonance
-      type: "lowpass",   // Low-pass filter
-      rolloff: -12       // Gentle slope (-12 dB/octave)
-    });
-    
-    // Create LFO for filter frequency modulation (600-1200 Hz range)
-    this.padFilterLFO = new Tone.LFO({
-      frequency: 0.15,   // Very slow, dreamy modulation
-      min: 600,          // Minimum filter frequency
-      max: 1200,         // Maximum filter frequency
-      type: "sine"       // Smooth sine wave modulation
-    });
-    
-    // Create LFO for resonance modulation (Q 1-3 range)
-    this.padResonanceLFO = new Tone.LFO({
-      frequency: 0.1,    // Extremely slow resonance modulation
-      min: 1,            // Minimum Q value
-      max: 3,            // Maximum Q value
-      type: "sine"       // Smooth sine wave modulation
-    });
-    
-    // Connect LFOs to filter parameters
-    this.padFilterLFO.connect(this.padFilter.frequency);
-    this.padResonanceLFO.connect(this.padFilter.Q);
-    
-    // Create the PolySynth with Motor City Pad configuration
-    this.pad = new Tone.PolySynth({
-      voice: Tone.Synth,
-      options: {
-        oscillator: { type: "square" }, // Square wave for classic pad sound
-        envelope: {
-          attack: 0.3,   // Slow, pad-like attack (the classic pad "swell")
-          decay: 0.8,    // Long decay for warmth
-          sustain: 0.85, // Very high sustain for pad character
-          release: 3.0   // Very long release for atmospheric trails
-        }
+    // Create a polyphonic pad synth for lush lead sounds
+    this.lead = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { 
+        type: "sawtooth" 
+      },
+      envelope: {
+        attack: 0.1,   // Slow attack for pad-like sound
+        decay: 0.3,    // Moderate decay
+        sustain: 0.6,  // Good sustain for pad
+        release: 1.0   // Long release for smooth transitions
+      },
+      filter: {
+        Q: 2,
+        type: "lowpass",
+        frequency: 1200
       }
-    });
+    }).connect(this.leadVolume);
     
-    // Connect the signal chain: PolySynth -> Filter -> Volume -> Destination
-    this.pad.connect(this.padFilter);
-    this.padFilter.connect(this.padVolume);
-    
-    // Start the LFOs (they create the "breathing" organic quality)
-    this.padFilterLFO.start();
-    this.padResonanceLFO.start();
+    // Set polyphony to 8 voices for rich chords
+    this.lead.maxPolyphony = 8;
   }
 
   private setupTempo(): void {
@@ -231,10 +199,10 @@ export class SimpleAudioEngine {
     if (acidStep && acidStep.note) {
       this.triggerAcid(time, acidStep.note);
     }
-    // Trigger Motor City Pad based on dynamic pattern
-    const padStep = this.padPattern.find(p => p.step === step);
-    if (padStep && padStep.chords.length > 0) {
-      this.triggerPad(time, padStep.chords);
+    // Trigger lead pad based on dynamic pattern
+    const leadStep = this.leadPattern.find(p => p.step === step);
+    if (leadStep && leadStep.notes && leadStep.notes.length > 0) {
+      this.triggerLead(time, leadStep.notes);
     }
     // Always schedule step change callback for visual step indicator
     this.scheduleStepUpdate(time, step);
@@ -256,14 +224,9 @@ export class SimpleAudioEngine {
     this.acid?.triggerAttackRelease(note, "8n", time, 0.8); // 0.8 velocity as specified
   }
 
-  private triggerPad(time: number, chords: string[]): void {
-    // Calculate dynamic velocity using cosine wave for emotional phrasing
-    const phrasePosition = (time * 0.1) % (Math.PI * 2); // Slow emotional arc
-    const dynamicVelocity = 0.6 + 0.1 * Math.cos(phrasePosition); // Range: 0.5-0.7 base
-    const finalVelocity = Math.max(0.4, Math.min(0.8, dynamicVelocity)); // Clamp to 0.4-0.8
-    
-    // Trigger the polyphonic chord with emotional phrasing
-    this.pad?.triggerAttackRelease(chords, "2n", time, finalVelocity); // Longer duration for pad sustain
+  private triggerLead(time: number, notes: string[]): void {
+    // Trigger polyphonic lead pad with chord or single notes
+    this.lead?.triggerAttackRelease(notes, "2n", time, 0.6); // Longer duration for pad, moderate velocity
   }
 
   private scheduleKickUIUpdates(time: number): void {
@@ -323,7 +286,7 @@ export class SimpleAudioEngine {
     this.cleanupSnare();
     this.cleanupBass();
     this.cleanupAcid();
-    this.cleanupPad();
+    this.cleanupLead();
     this.reset();
   }
 
@@ -378,28 +341,14 @@ export class SimpleAudioEngine {
     }
   }
 
-  private cleanupPad(): void {
-    if (this.padFilterLFO) {
-      this.padFilterLFO.stop();
-      this.padFilterLFO.dispose();
-      this.padFilterLFO = null;
+  private cleanupLead(): void {
+    if (this.lead) {
+      this.lead.dispose();
+      this.lead = null;
     }
-    if (this.padResonanceLFO) {
-      this.padResonanceLFO.stop();
-      this.padResonanceLFO.dispose();
-      this.padResonanceLFO = null;
-    }
-    if (this.pad) {
-      this.pad.dispose();
-      this.pad = null;
-    }
-    if (this.padFilter) {
-      this.padFilter.dispose();
-      this.padFilter = null;
-    }
-    if (this.padVolume) {
-      this.padVolume.dispose();
-      this.padVolume = null;
+    if (this.leadVolume) {
+      this.leadVolume.dispose();
+      this.leadVolume = null;
     }
   }
 
@@ -494,51 +443,22 @@ export class SimpleAudioEngine {
     }
   }
 
-  setPadPattern(pattern: { step: number; chords: string[] }[]): void {
-    this.padPattern = pattern;
-    console.log('Updated Motor City Pad pattern:', pattern);
+  setLeadPattern(pattern: { step: number; notes: string[] }[]): void {
+    this.leadPattern = pattern;
+    console.log('Updated lead pattern:', pattern);
   }
 
-  getPadPattern(): { step: number; chords: string[] }[] {
-    return this.padPattern;
+  getLeadPattern(): { step: number; notes: string[] }[] {
+    return this.leadPattern;
   }
 
-  setPadMuted(muted: boolean): void {
-    if (this.padVolume) {
-      this.padVolume.volume.value = muted ? -Infinity : -12; // Return to -12 dB when unmuted
-      console.log('Motor City Pad muted:', muted);
+  setLeadMuted(muted: boolean): void {
+    if (this.leadVolume) {
+      this.leadVolume.volume.value = muted ? -Infinity : -12; // Return to -12 dB when unmuted
+      console.log('Lead muted:', muted);
     }
   }
 
-  // Helper method to generate Detroit-style chord progressions
-  generateDetroitPadPattern(userTokenBalance: number): { step: number; chords: string[] }[] {
-    // Syncopated 8th note positions as specified
-    const positions = [0, 2, 6, 8, 10, 14];
-    
-    // Detroit Dorian scale chord progressions (F Dorian as specified)
-    const chordProgressions = [
-      // Simple progression for minimal tokens
-      [["F4", "Ab4", "C5"], ["Gm4", "Bb4", "D5"], ["Ab4", "C5", "Eb5"], ["Bb4", "D5", "F5"]],
-      // Richer progression for moderate tokens  
-      [["F4", "Ab4", "C5"], ["Gm4", "Bb4", "D5"], ["Ab4", "C5", "Eb5"], ["Bb4", "D5", "F5"], ["C5", "Eb5", "G5"], ["Dm5", "F5", "A5"]],
-      // Complex Detroit jazz harmony for high token holders
-      [["F4", "Ab4", "C5", "Eb5"], ["Gm4", "Bb4", "D5", "F5"], ["Ab4", "C5", "Eb5", "G5"], ["Bb4", "D5", "F5", "A5"]]
-    ];
-    
-    let chordSet: string[][];
-    if (userTokenBalance <= 1000) {
-      chordSet = chordProgressions[0]; // Simple
-    } else if (userTokenBalance <= 10000) {
-      chordSet = chordProgressions[1]; // Moderate
-    } else {
-      chordSet = chordProgressions[2]; // Complex
-    }
-    
-    return positions.map((step, index) => ({
-      step: step,
-      chords: chordSet[index % chordSet.length]
-    }));
-  }
 
   // Unmute all tracks for full arrangement playback
   unmuteAllTracks(): void {
@@ -547,7 +467,7 @@ export class SimpleAudioEngine {
     this.setSnareMuted(false);
     this.setBassMuted(false);
     this.setAcidMuted(false);
-    this.setPadMuted(false);
+    this.setLeadMuted(false);
   }
 
   // Update sequence length and recreate sequence
