@@ -364,7 +364,7 @@ export default function CreatePage() {
   const [showNextButton, setShowNextButton] = useState(false);
   
   // Progression state - tracks which stage we're at
-  const [progressionStage, setProgressionStage] = useState<'kick-educational' | 'kick-personal' | 'snare-educational' | 'snare-personal' | 'bass-educational' | 'bass-personal' | 'acid-educational' | 'acid-personal' | 'lead-educational' | 'lead-personal' | 'complete'>('kick-educational');
+  const [progressionStage, setProgressionStage] = useState<'kick-educational' | 'kick-personal' | 'snare-educational' | 'snare-personal' | 'bass-educational' | 'bass-personal' | 'acid-educational' | 'acid-personal' | 'lead-educational' | 'lead-personal' | 'complete' | 'ai-processing' | 'ai-ready'>('kick-educational');
   
   // AI processing state
   const [isAIProcessing, setIsAIProcessing] = useState(false);
