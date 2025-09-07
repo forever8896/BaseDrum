@@ -584,13 +584,13 @@ export default function CreatePage() {
     });
     
     if (ethPrice < 2000) {
-      return `Because ETH is at $${ethPrice.toFixed(0)} (bear market), you get the standard clap pattern`;
+      return `Because RedStone says ETH is at $${ethPrice.toFixed(0)} (bear market), you get the standard clap pattern`;
     } else if (ethPrice <= 3000) {
-      return `Because ETH is at $${ethPrice.toFixed(0)} (recovery mode), you get an anticipation clap pattern!`;
+      return `Because RedStone says ETH is at $${ethPrice.toFixed(0)} (recovery mode), you get an anticipation clap pattern!`;
     } else if (ethPrice <= 4000) {
-      return `Because ETH is at $${ethPrice.toFixed(0)} (bull market), you get syncopated clap patterns!`;
+      return `Because RedStone says ETH is at $${ethPrice.toFixed(0)} (bull market), you get syncopated clap patterns!`;
     } else {
-      return `Because ETH is at $${ethPrice.toFixed(0)} (moon time), you get complex euphoric clap rhythms!`;
+      return `Because RedStone says ETH is at $${ethPrice.toFixed(0)} (moon time), you get complex euphoric clap rhythms!`;
     }
   }, [userSnapshot]);
 
@@ -658,8 +658,8 @@ export default function CreatePage() {
     });
   }, []);
   
-  const colorToNote = useCallback((color: string): string => {
-    // Convert hex color to hue value (0-360)
+  const colorToNote = useCallback((color: string): string | null => {
+    // Convert hex color to hue, saturation, and brightness
     const hex = color.replace('#', '');
     const r = parseInt(hex.substring(0, 2), 16) / 255;
     const g = parseInt(hex.substring(2, 4), 16) / 255;
@@ -668,6 +668,14 @@ export default function CreatePage() {
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
     const delta = max - min;
+    const brightness = max;
+    const saturation = max === 0 ? 0 : delta / max;
+    
+    // LESS IS MORE: Only generate notes for colors with sufficient brightness and saturation
+    // This creates more musical spacing and prevents muddy harmonies
+    if (brightness < 0.3 || saturation < 0.2) {
+      return null; // Return null for dull/dark colors - creates musical rests
+    }
     
     let hue = 0;
     if (delta !== 0) {
@@ -678,10 +686,12 @@ export default function CreatePage() {
     hue *= 60;
     if (hue < 0) hue += 360;
     
-    // Map hue to pentatonic scale notes (C, D, E, G, A)
-    const pentatonicNotes = ['C4', 'D4', 'E4', 'G4', 'A4'];
-    const noteIndex = Math.floor((hue / 360) * pentatonicNotes.length);
-    return pentatonicNotes[noteIndex];
+    // Map to D minor pentatonic to match the bass (D, F, G) and acid (C minor pentatonic)
+    // D minor pentatonic: D, F, G, A, C - harmonically compatible with both bass and acid
+    // Using octave 3 to sit nicely between bass (octave 1) and acid (octaves 2-4)
+    const dMinorPentatonicNotes = ['D3', 'F3', 'G3', 'A3', 'C4'];
+    const noteIndex = Math.floor((hue / 360) * dMinorPentatonicNotes.length);
+    return dMinorPentatonicNotes[noteIndex];
   }, []);
   
   const startAvatarAnalysis = useCallback(async () => {
@@ -700,16 +710,35 @@ export default function CreatePage() {
         const colors = await analyzeAvatarColors('/jesse.png');
         const notes = colors.map(colorToNote);
         
-        // Create lead pattern from avatar analysis
+        // Create lead pattern from avatar analysis - LESS IS MORE approach
         const avatarLeadPattern: number[] = [];
         const avatarLeadNotes = new Array(16).fill("");
         
-        // Use first 16 colors/notes for the pattern
-        for (let i = 0; i < Math.min(16, colors.length); i++) {
-          if (notes[i]) {
-            avatarLeadPattern.push(i);
-            avatarLeadNotes[i] = notes[i];
+        // Filter out null notes and create more musical spacing
+        const validNotes = notes.filter(note => note !== null);
+        
+        if (validNotes.length === 0) {
+          // If no valid notes, create a simple, minimal pattern using D and G (matching bass key)
+          avatarLeadPattern.push(0, 8);
+          avatarLeadNotes[0] = "D3";
+          avatarLeadNotes[8] = "G3";
+        } else {
+          // LESS IS MORE: Use only 2-4 notes maximum for a sparse, musical lead
+          // Focus on key strong beats for maximum musical impact
+          const musicalPositions = [0, 8, 4, 12]; // Priority order: downbeat, halfway, then quarters
+          
+          // Take only the first 3-4 valid notes maximum
+          const notesToUse = validNotes.slice(0, Math.min(3, validNotes.length));
+          
+          // Place notes only on the most important beats
+          for (let i = 0; i < notesToUse.length; i++) {
+            const position = musicalPositions[i];
+            avatarLeadPattern.push(position);
+            avatarLeadNotes[position] = notesToUse[i];
           }
+          
+          // Sort pattern array to be in chronological order
+          avatarLeadPattern.sort((a, b) => a - b);
         }
         
         // Update song data with avatar-generated pattern
@@ -729,10 +758,17 @@ export default function CreatePage() {
         if (audioEngineRef.current) {
           const leadMelodyData = avatarLeadPattern.map(step => ({
             step,
-            notes: [avatarLeadNotes[step]].filter(Boolean)
+            notes: avatarLeadNotes[step] ? [avatarLeadNotes[step]] : []
           }));
           audioEngineRef.current.setLeadPattern(leadMelodyData);
           audioEngineRef.current.setLeadMuted(false); // Unmute the lead track
+          
+          console.log('🎵 Avatar lead pattern generated:', {
+            totalColors: colors.length,
+            validNotes: validNotes.length,
+            finalPattern: leadMelodyData,
+            musicalSpacing: 'Strong beats prioritized for musical results'
+          });
         }
         
         setTimeout(() => {
@@ -1223,7 +1259,7 @@ export default function CreatePage() {
 
       // Start sequencer text sequence
       setTimeout(() => {
-        setSequencerText("The kick drum is the heartbeat of techno");
+        setSequencerText("The kick drum is the heartbeat of our track");
         setSequencerTextVisible(true);
         // Show Next button after educational text appears
         setTimeout(() => {
@@ -1306,11 +1342,12 @@ export default function CreatePage() {
   const handleSquareClick = useCallback(async () => {
     console.log("handleSquareClick called");
     console.log("showSequencer:", showSequencer);
+    console.log("isTransitioning:", isTransitioning);
 
     try {
-      // If already showing sequencer, do nothing
-      if (showSequencer) {
-        console.log("Already showing sequencer, returning");
+      // Prevent clicks if already showing sequencer or transitioning
+      if (showSequencer || isTransitioning) {
+        console.log("Sequencer already active or transitioning, ignoring click");
         return;
       }
 
@@ -1332,7 +1369,7 @@ export default function CreatePage() {
     } catch (error) {
       console.error("Failed to start audio:", error);
     }
-  }, [handleStepChange, showSequencer]);
+  }, [handleStepChange, showSequencer, isTransitioning]);
 
   return (
     <div className="h-screen bg-black text-white flex flex-col relative overflow-hidden font-exo">
@@ -1361,8 +1398,43 @@ export default function CreatePage() {
           }
         }
 
+        @keyframes scan {
+          0% {
+            transform: translateY(-100%);
+          }
+          100% {
+            transform: translateY(200%);
+          }
+        }
+
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.8;
+          }
+        }
+
         .animate-fade-in {
           animation: fade-in 0.5s ease-out;
+        }
+
+        .animate-scan {
+          animation: scan 2s linear infinite;
+        }
+
+        .slow-spin {
+          animation: spin 8s linear infinite;
+        }
+
+        @keyframes spin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
         }
       `}</style>
 
@@ -1553,73 +1625,210 @@ export default function CreatePage() {
       
       {/* Avatar Analysis Modal */}
       {showAvatarModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-lg p-8 max-w-md w-full mx-4 text-center">
-            <h2 className="text-2xl font-bold text-white mb-6 font-orbitron">Avatar Analysis</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 rounded-2xl p-8 max-w-md w-full mx-4 text-center border border-purple-500/20 shadow-2xl animate-fade-in"
+               style={{
+                 boxShadow: '0 0 100px rgba(168, 85, 247, 0.2), 0 0 50px rgba(59, 130, 246, 0.1)',
+                 animation: 'fadeIn 0.3s ease-out, pulse 4s ease-in-out infinite'
+               }}>
+            <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 mb-6 font-orbitron tracking-wider">
+              Avatar → Melody
+            </h2>
             
             {avatarAnalysisStage === 'original' && (
               <div className="space-y-4">
-                <div className="text-gray-300 text-lg">Your original avatar:</div>
-                <img 
-                  src="/jesse.png" 
-                  alt="Avatar" 
-                  className="w-48 h-48 mx-auto rounded-lg"
-                />
+                <div className="text-gray-300 text-lg font-exo animate-pulse">
+                  Scanning your avatar...
+                </div>
+                <div className="relative mx-auto w-48 h-48">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl animate-spin slow-spin opacity-20 blur-xl"></div>
+                  <img 
+                    src="/jesse.png" 
+                    alt="Avatar" 
+                    className="relative w-48 h-48 mx-auto rounded-xl border-2 border-white/20 shadow-2xl"
+                    style={{
+                      filter: 'contrast(1.1) saturate(1.2)',
+                      boxShadow: '0 10px 40px rgba(0,0,0,0.5), 0 0 60px rgba(59, 130, 246, 0.3)'
+                    }}
+                  />
+                  {/* Scanning beam effect */}
+                  <div className="absolute inset-0 overflow-hidden rounded-xl">
+                    <div className="absolute w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-scan opacity-60"></div>
+                  </div>
+                </div>
               </div>
             )}
             
             {avatarAnalysisStage === 'quantizing' && (
               <div className="space-y-4">
-                <div className="text-gray-300 text-lg">Quantizing to 8×8 grid...</div>
-                <div className="grid grid-cols-8 gap-1 w-48 h-48 mx-auto">
-                  {Array.from({ length: 64 }).map((_, i) => (
-                    <div 
-                      key={i}
-                      className="bg-blue-600 opacity-60 animate-pulse"
-                      style={{ 
-                        animationDelay: `${i * 20}ms`,
-                        aspectRatio: '1' 
-                      }}
-                    />
-                  ))}
+                <div className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-lg font-bold">
+                  Pixelating reality → 8×8 matrix
+                </div>
+                <div className="relative w-48 h-48 mx-auto">
+                  {/* Glowing border effect */}
+                  <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl blur opacity-30 animate-pulse"></div>
+                  
+                  {/* Avatar image as background */}
+                  <img 
+                    src="/jesse.png" 
+                    alt="Avatar" 
+                    className="absolute inset-0 w-full h-full rounded-xl z-0"
+                    style={{ filter: 'brightness(0.7)' }}
+                  />
+                  
+                  {/* Overlay grid with glitch effect */}
+                  <div className="absolute inset-0 grid grid-cols-8 gap-0 rounded-xl overflow-hidden z-10">
+                    {Array.from({ length: 64 }).map((_, i) => {
+                      const row = Math.floor(i / 8);
+                      const col = i % 8;
+                      // Diagonal wave pattern
+                      const delay = (row + col) * 30;
+                      const isEven = (row + col) % 2 === 0;
+                      
+                      return (
+                        <div 
+                          key={i}
+                          className={`border ${isEven ? 'border-cyan-400/40' : 'border-purple-400/40'} backdrop-blur-md animate-fade-in hover:scale-110 transition-transform`}
+                          style={{ 
+                            animationDelay: `${delay}ms`,
+                            animationFillMode: 'backwards',
+                            background: `linear-gradient(135deg, rgba(59, 130, 246, ${0.2 + Math.random() * 0.2}) 0%, rgba(168, 85, 247, ${0.2 + Math.random() * 0.2}) 100%)`,
+                            aspectRatio: '1',
+                            boxShadow: 'inset 0 0 10px rgba(255,255,255,0.1)'
+                          }}
+                        >
+                          <div className="w-full h-full opacity-0 hover:opacity-100 bg-white/10 transition-opacity"></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500 animate-pulse">
+                  ▓▓▓░░░ Processing pixels ░░░▓▓▓
                 </div>
               </div>
             )}
             
             {avatarAnalysisStage === 'analyzing' && (
               <div className="space-y-4">
-                <div className="text-gray-300 text-lg">Mapping colors to musical notes...</div>
-                <div className="grid grid-cols-8 gap-1 w-48 h-48 mx-auto">
-                  {Array.from({ length: 64 }).map((_, i) => {
-                    // Generate a pseudo-random color for each cell for demo
-                    const hue = (i * 137.5) % 360;
-                    const color = `hsl(${hue}, 60%, 50%)`;
-                    return (
-                      <div 
-                        key={i}
-                        className="flex items-center justify-center text-xs font-bold text-white shadow-lg animate-bounce"
-                        style={{ 
-                          backgroundColor: color,
-                          animationDelay: `${i * 30}ms`,
-                          aspectRatio: '1' 
-                        }}
-                      >
-                        ♪
-                      </div>
-                    );
-                  })}
+                <div className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-pink-400 to-purple-400 text-lg font-bold animate-pulse">
+                  🎵 Extracting harmonic essence 🎵
+                </div>
+                <div className="text-xs text-gray-400 mb-2 font-mono">
+                  <span className="text-green-400">▸</span> FILTER: brightness {'>'} 30% && saturation {'>'} 20%
+                </div>
+                <div className="relative w-48 h-48 mx-auto">
+                  {/* Rotating glow effect behind */}
+                  <div className="absolute -inset-2 bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 rounded-xl blur-md opacity-40 animate-spin slow-spin"></div>
+                  
+                  {/* Keep avatar visible but dimmed */}
+                  <img 
+                    src="/jesse.png" 
+                    alt="Avatar" 
+                    className="absolute inset-0 w-full h-full rounded-xl opacity-20 z-0"
+                    style={{ filter: 'blur(2px)' }}
+                  />
+                  
+                  {/* Quantized color overlay with musical indicators */}
+                  <div className="absolute inset-0 grid grid-cols-8 gap-0 rounded-xl overflow-hidden z-10">
+                    {Array.from({ length: 64 }).map((_, i) => {
+                      const hue = (i * 137.5) % 360;
+                      const brightness = 0.2 + (i % 3) * 0.3;
+                      const saturation = 0.1 + (i % 4) * 0.3;
+                      const isMusical = brightness > 0.3 && saturation > 0.2;
+                      const color = `hsl(${hue}, ${saturation * 100}%, ${brightness * 100}%)`;
+                      
+                      // Radial wave from center
+                      const row = Math.floor(i / 8);
+                      const col = i % 8;
+                      const centerDist = Math.sqrt(Math.pow(row - 3.5, 2) + Math.pow(col - 3.5, 2));
+                      const delay = centerDist * 80;
+                      
+                      return (
+                        <div 
+                          key={i}
+                          className={`relative flex items-center justify-center text-xs font-bold animate-fade-in ${
+                            isMusical ? 'scale-100' : 'scale-75'
+                          }`}
+                          style={{ 
+                            animationDelay: `${delay}ms`,
+                            animationFillMode: 'backwards',
+                            aspectRatio: '1',
+                            transition: 'all 0.3s ease'
+                          }}
+                        >
+                          {isMusical ? (
+                            <>
+                              <div className="absolute inset-0 rounded-lg" 
+                                   style={{ 
+                                     backgroundColor: color,
+                                     boxShadow: `0 0 20px ${color}, inset 0 0 10px rgba(255,255,255,0.3)`,
+                                     transform: 'scale(0.9)'
+                                   }}>
+                              </div>
+                              <span className="relative text-white font-black text-lg animate-bounce z-20" 
+                                    style={{ 
+                                      animationDelay: `${delay + 200}ms`,
+                                      textShadow: '0 0 10px rgba(255,255,255,0.8)'
+                                    }}>
+                                ♪
+                              </span>
+                            </>
+                          ) : (
+                            <div className="absolute inset-0 bg-gray-800/20 rounded backdrop-blur-sm"></div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex justify-center gap-2 text-xs">
+                  <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded font-mono">
+                    PASS: {Array.from({ length: 64 }).filter((_, i) => {
+                      const brightness = 0.2 + (i % 3) * 0.3;
+                      const saturation = 0.1 + (i % 4) * 0.3;
+                      return brightness > 0.3 && saturation > 0.2;
+                    }).length} colors
+                  </span>
+                  <span className="px-2 py-1 bg-red-500/20 text-red-400 rounded font-mono">
+                    SKIP: {64 - Array.from({ length: 64 }).filter((_, i) => {
+                      const brightness = 0.2 + (i % 3) * 0.3;
+                      const saturation = 0.1 + (i % 4) * 0.3;
+                      return brightness > 0.3 && saturation > 0.2;
+                    }).length} colors
+                  </span>
                 </div>
               </div>
             )}
             
             {avatarAnalysisStage === 'complete' && (
               <div className="space-y-4">
-                <div className="text-green-400 text-lg font-bold">✅ Analysis Complete!</div>
-                <div className="text-gray-300">
-                  Your avatar has been transformed into a unique harmonic progression
+                <div className="relative">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-green-400 to-blue-500 rounded-lg blur opacity-40 animate-pulse"></div>
+                  <div className="relative bg-black/50 rounded-lg p-4 border border-green-400/50">
+                    <div className="text-green-400 text-2xl font-black mb-2 flex items-center justify-center gap-2">
+                      <span className="animate-bounce" style={{ animationDelay: '0ms' }}>✨</span>
+                      <span>SUCCESS</span>
+                      <span className="animate-bounce" style={{ animationDelay: '200ms' }}>✨</span>
+                    </div>
+                    <div className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-purple-300 font-bold">
+                      Avatar melody extracted!
+                    </div>
+                  </div>
                 </div>
-                <div className="text-sm text-gray-500">
-                  64 colors mapped to pentatonic scale
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="bg-purple-500/20 rounded p-2 border border-purple-400/30">
+                    <div className="text-purple-400 font-mono">SCALE</div>
+                    <div className="text-white font-bold">D minor</div>
+                  </div>
+                  <div className="bg-blue-500/20 rounded p-2 border border-blue-400/30">
+                    <div className="text-blue-400 font-mono">NOTES</div>
+                    <div className="text-white font-bold">≤ 3</div>
+                  </div>
+                  <div className="bg-pink-500/20 rounded p-2 border border-pink-400/30">
+                    <div className="text-pink-400 font-mono">VIBE</div>
+                    <div className="text-white font-bold">Minimal</div>
+                  </div>
                 </div>
               </div>
             )}
