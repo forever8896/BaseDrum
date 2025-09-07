@@ -378,6 +378,9 @@ export default function CreatePage() {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [avatarAnalysisStage, setAvatarAnalysisStage] = useState<'original' | 'quantizing' | 'analyzing' | 'complete'>('original');
 
+  // Demo mode toggle - determines whether to use Jesse's demo address or user's actual address
+  const [isJesse, setIsJesse] = useState(false); // Default to demo mode
+
   // Export song data function (for demonstration)
   const exportSongData = useCallback(() => {
     try {
@@ -493,10 +496,18 @@ export default function CreatePage() {
     try {
       console.log("Fetching user data for personalized track generation...");
 
-      // Temporarily use hardcoded address for demo
+      // Use demo address or actual user address based on isJesse flag
       const demoAddress = "0x2211d1D0020DAEA8039E46Cf1367962070d77DA9";
-      const snapshot = await dataFetcher.fetchUserSnapshot(context, demoAddress);
-      console.log('🔍 Full snapshot for demo address:', JSON.stringify(snapshot, null, 2));
+      const addressToUse = isJesse ? demoAddress : address;
+      
+      console.log('🎛️ Demo mode settings:');
+      console.log('  isJesse flag:', isJesse);
+      console.log('  Demo address:', demoAddress);
+      console.log('  Connected address:', address);
+      console.log('  Address being used:', addressToUse);
+      
+      const snapshot = await dataFetcher.fetchUserSnapshot(context, addressToUse);
+      console.log('🔍 Full snapshot for address', addressToUse + ':', JSON.stringify(snapshot, null, 2));
       console.log('🔍 Onchain data specifically:', snapshot.onchain);
       console.log('🔍 Transaction count:', snapshot.onchain.transactionCount);
       console.log('🔍 Token count:', snapshot.onchain.tokenCount);
@@ -611,12 +622,13 @@ export default function CreatePage() {
   }, [userSnapshot]);
 
   const getPersonalAcidMessage = useCallback((): string => {
-    // Temporarily use hardcoded address for music generation demo
+    // Use demo address or actual user address based on isJesse flag
     const demoAddress = "0x2211d1D0020DAEA8039E46Cf1367962070d77DA9";
-    const shortAddress = `${demoAddress.slice(0, 6)}...${demoAddress.slice(-4)}`;
-    const hexSection = demoAddress.slice(2, 18); // First 16 hex chars after 0x
+    const addressToUse = isJesse ? demoAddress : (address || demoAddress);
+    const shortAddress = `${addressToUse.slice(0, 6)}...${addressToUse.slice(-4)}`;
+    const hexSection = addressToUse.slice(2, 18); // First 16 hex chars after 0x
     return `We've used your unique wallet address ${shortAddress} to map each hex character (${hexSection}) to a minor scale, with D/E/F creating musical rests.`;
-  }, [address]);
+  }, [address, isJesse]);
   
   // Avatar analysis functions
   const analyzeAvatarColors = useCallback(async (imageUrl: string): Promise<string[]> => {
@@ -1108,10 +1120,11 @@ export default function CreatePage() {
         
         // 2. Generate melody from connected wallet address
         if (address && audioEngineRef.current) {
-          // Temporarily use hardcoded address for music generation demo
+          // Use demo address or actual user address based on isJesse flag
           const demoAddress = "0x2211d1D0020DAEA8039E46Cf1367962070d77DA9";
-          console.log('Generating acid melody from wallet address:', demoAddress);
-          const generatedMelody = audioEngineRef.current.generateAcidMelodyFromWallet(demoAddress);
+          const addressToUse = isJesse ? demoAddress : address;
+          console.log('Generating acid melody from wallet address:', addressToUse);
+          const generatedMelody = audioEngineRef.current.generateAcidMelodyFromWallet(addressToUse);
           
           // Convert melody format to schema format
           const acidSteps: number[] = [];
