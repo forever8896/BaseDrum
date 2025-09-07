@@ -99,9 +99,9 @@ export async function generateMetadata(): Promise<Metadata> {
     other: {
       "fc:frame": JSON.stringify({
         version: "next",
-        imageUrl: process.env.NEXT_PUBLIC_APP_HERO_IMAGE || `${baseUrl}/hero.png`,
+        imageUrl: `${baseUrl}/api/embed?mode=default`,
         button: {
-          title: `Launch ${appName}`,
+          title: "🎵 Create Your Beat",
           action: {
             type: "launch_frame",
             name: appName,
