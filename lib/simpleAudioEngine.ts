@@ -22,12 +22,16 @@ const BEAT_INTENSITY_DECAY = [
 
 export class SimpleAudioEngine {
   private kick: Tone.MembraneSynth | null = null;
+  private clap: Tone.NoiseSynth | null = null;
+  private kickVolume: Tone.Volume | null = null;
+  private clapVolume: Tone.Volume | null = null;
   private sequence: Tone.Sequence | null = null;
   private isInitialized = false;
   private isPlaying = false;
   private onStepCallback?: StepChangeCallback;
   private onBeatIntensityCallback?: BeatIntensityCallback;
   private kickPattern: number[] = [0, 4, 8, 12]; // Default pattern
+  private clapPattern: number[] = [4, 12]; // Default clap pattern
 
   async initialize(
     onStepChange?: StepChangeCallback,
@@ -41,6 +45,7 @@ export class SimpleAudioEngine {
     await Tone.start();
     
     this.createKickDrum();
+    this.createClap();
     this.setupTempo();
     this.createSequence();
     
@@ -48,6 +53,7 @@ export class SimpleAudioEngine {
   }
 
   private createKickDrum(): void {
+    this.kickVolume = new Tone.Volume(0).toDestination(); // Start unmuted
     this.kick = new Tone.MembraneSynth({
       pitchDecay: 0.05,
       octaves: 4,
@@ -58,7 +64,20 @@ export class SimpleAudioEngine {
         sustain: 0.01, 
         release: 1.4 
       },
-    }).toDestination();
+    }).connect(this.kickVolume);
+  }
+
+  private createClap(): void {
+    this.clapVolume = new Tone.Volume(-Infinity).toDestination(); // Start muted
+    this.clap = new Tone.NoiseSynth({
+      noise: { type: "pink" },
+      envelope: {
+        attack: 0.001,
+        decay: 0.2,
+        sustain: 0,
+        release: 0.2
+      }
+    }).connect(this.clapVolume);
   }
 
   private setupTempo(): void {
@@ -81,12 +100,20 @@ export class SimpleAudioEngine {
       // Only schedule beat intensity decay on kick hits
       this.scheduleKickUIUpdates(time);
     }
+    // Trigger clap based on dynamic pattern
+    if (this.clapPattern.includes(step)) {
+      this.triggerClap(time);
+    }
     // Always schedule step change callback for visual step indicator
     this.scheduleStepUpdate(time, step);
   }
 
   private triggerKick(time: number): void {
     this.kick?.triggerAttackRelease(KICK_NOTE, NOTE_DURATION, time);
+  }
+
+  private triggerClap(time: number): void {
+    this.clap?.triggerAttackRelease(NOTE_DURATION, time);
   }
 
   private scheduleKickUIUpdates(time: number): void {
@@ -141,6 +168,7 @@ export class SimpleAudioEngine {
     this.stop();
     this.cleanupSequence();
     this.cleanupKick();
+    this.cleanupClap();
     this.reset();
   }
 
@@ -155,6 +183,21 @@ export class SimpleAudioEngine {
     if (this.kick) {
       this.kick.dispose();
       this.kick = null;
+    }
+    if (this.kickVolume) {
+      this.kickVolume.dispose();
+      this.kickVolume = null;
+    }
+  }
+
+  private cleanupClap(): void {
+    if (this.clap) {
+      this.clap.dispose();
+      this.clap = null;
+    }
+    if (this.clapVolume) {
+      this.clapVolume.dispose();
+      this.clapVolume = null;
     }
   }
 
@@ -180,5 +223,28 @@ export class SimpleAudioEngine {
 
   getKickPattern(): number[] {
     return this.kickPattern;
+  }
+
+  setClapPattern(pattern: number[]): void {
+    this.clapPattern = pattern;
+    console.log('Updated clap pattern:', pattern);
+  }
+
+  getClapPattern(): number[] {
+    return this.clapPattern;
+  }
+
+  setKickMuted(muted: boolean): void {
+    if (this.kickVolume) {
+      this.kickVolume.volume.value = muted ? -Infinity : 0;
+      console.log('Kick muted:', muted);
+    }
+  }
+
+  setClapMuted(muted: boolean): void {
+    if (this.clapVolume) {
+      this.clapVolume.volume.value = muted ? -Infinity : 0;
+      console.log('Clap muted:', muted);
+    }
   }
 }

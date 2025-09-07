@@ -85,14 +85,19 @@ function PulsatingSquare({
 function DrumSequencer({
   currentStep,
   kickPattern,
+  clapPattern,
+  showClapTrack,
 }: {
   currentStep: number;
   kickPattern: number[];
+  clapPattern?: number[];
+  showClapTrack?: boolean;
 }) {
   const steps = Array.from({ length: 16 }, (_, i) => i);
 
   return (
-    <div className="flex items-center justify-center w-full px-4">
+    <div className="flex flex-col items-center justify-center w-full px-4 gap-2">
+      {/* Kick track */}
       <div
         className="flex gap-1 w-full max-w-full"
         style={{ gap: "min(0.5rem, calc((100vw - 2rem) / 32))" }}
@@ -120,6 +125,38 @@ function DrumSequencer({
           );
         })}
       </div>
+
+      {/* Clap track */}
+      {showClapTrack && clapPattern && (
+        <div
+          className="flex gap-1 w-full max-w-full"
+          style={{ gap: "min(0.5rem, calc((100vw - 2rem) / 32))" }}
+        >
+          {steps.map((step) => {
+            const hasClap = clapPattern.includes(step);
+            const isCurrentStep = step === currentStep % 16;
+
+            return (
+              <div
+                key={step}
+                className={`rounded-[5%] cursor-pointer transition-all opacity-0 animate-fade-in ${
+                  hasClap
+                    ? "hover:brightness-110"
+                    : "hover:bg-opacity-30"
+                } ${isCurrentStep ? "ring-2 ring-white" : ""}`}
+                style={{
+                  animationDelay: `${step * 50}ms`,
+                  animationFillMode: "forwards",
+                  width: "min(2rem, calc((100vw - 2rem) / 20))",
+                  height: "min(2rem, calc((100vw - 2rem) / 20))",
+                  flexShrink: 0,
+                  backgroundColor: hasClap ? "#ffd12f" : "rgba(255, 209, 47, 0.2)",
+                }}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -150,6 +187,14 @@ export default function CreatePage() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [kickTrackData, setKickTrackData] = useState<TrackData | null>(null);
   const [kickPattern, setKickPattern] = useState<number[]>([0, 4, 8, 12]); // Default pattern
+  
+  // Clap track state
+  const [showClapTrack, setShowClapTrack] = useState(false);
+  const [clapPattern, setClapPattern] = useState<number[]>([4, 12]); // Basic clap on beats 2 and 4
+  const [showNextButton, setShowNextButton] = useState(false);
+  
+  // Progression state - tracks which stage we're at
+  const [progressionStage, setProgressionStage] = useState<'kick-educational' | 'kick-personal' | 'clap-educational' | 'clap-personal' | 'complete'>('kick-educational');
 
   // Cleanup audio engine on unmount
   useEffect(() => {
@@ -175,6 +220,21 @@ export default function CreatePage() {
         return [0, 2, 4, 8, 10, 12]; // Double hits
       } else {
         return [0, 1, 4, 6, 8, 9, 12, 14]; // Complex syncopation
+      }
+    },
+    [],
+  );
+
+  const generateClapPattern = useCallback(
+    (followerCount: number): number[] => {
+      if (followerCount === 0) {
+        return [4, 12]; // Standard clap on beats 2 and 4
+      } else if (followerCount <= 50) {
+        return [4, 12, 14]; // Add anticipation
+      } else if (followerCount <= 200) {
+        return [4, 6, 12]; // Add syncopation
+      } else {
+        return [2, 4, 6, 12, 14]; // Complex rhythm for influencers
       }
     },
     [],
@@ -292,6 +352,112 @@ export default function CreatePage() {
     }
   }, [userSnapshot]);
 
+  const getPersonalClapMessage = useCallback((): string => {
+    if (!userSnapshot) {
+      return "You're keeping the standard clap on beats 2 and 4";
+    }
+    const followerCount = userSnapshot.farcaster.followerCount || 0;
+    if (followerCount === 0) {
+      return "You're keeping the standard clap on beats 2 and 4";
+    } else if (followerCount <= 50) {
+      return `${followerCount} followers give you an anticipation clap!`;
+    } else if (followerCount <= 200) {
+      return `${followerCount} followers unlock syncopated clap patterns!`;
+    } else {
+      return `${followerCount} followers make you an influencer - you get complex rhythm claps!`;
+    }
+  }, [userSnapshot]);
+
+  const handleNextClick = useCallback(() => {
+    console.log('Next button clicked, current stage:', progressionStage);
+    setShowNextButton(false);
+    
+    if (progressionStage === 'kick-educational') {
+      // Move from kick educational to kick personal
+      setProgressionStage('kick-personal');
+      setTimeout(() => {
+        setSequencerTextVisible(false);
+        setTimeout(() => {
+          const personalText = getPersonalKickMessage();
+          setSequencerText(personalText);
+          setSequencerTextVisible(true);
+          
+          // NOW upgrade to their actual pattern - dramatic transformation!
+          const basicPattern = [0, 4, 8, 12];
+          const userTxCount = userSnapshot?.onchain.transactionCount || 0;
+          const personalizedPattern = generateKickPattern(userTxCount);
+          
+          // Only upgrade if it's different from basic
+          if (JSON.stringify(personalizedPattern) !== JSON.stringify(basicPattern)) {
+            setTimeout(() => {
+              setKickPattern(personalizedPattern);
+              if (audioEngineRef.current) {
+                audioEngineRef.current.setKickPattern(personalizedPattern);
+              }
+              console.log("✨ Pattern upgraded from basic to personalized!", personalizedPattern);
+            }, 500); // 500ms after personal text appears for dramatic effect
+          }
+          
+          // Show Next button for clap progression
+          setTimeout(() => {
+            setShowNextButton(true);
+            setProgressionStage('clap-educational');
+          }, 2000);
+        }, 300);
+      }, 300);
+    } else if (progressionStage === 'clap-educational') {
+      // Start clap track progression
+      setProgressionStage('clap-personal');
+      setTimeout(() => {
+        // 1. Change title and start with basic clap pattern
+        setShowClapTrack(true);
+        const basicClapPattern = [4, 12]; // Basic clap on beats 2 and 4
+        setClapPattern(basicClapPattern);
+        audioEngineRef.current?.setClapPattern(basicClapPattern);
+        // Unmute the clap track now that we're introducing it
+        audioEngineRef.current?.setClapMuted(false);
+        
+        // 2. Show educational text
+        setTimeout(() => {
+          setSequencerTextVisible(false);
+          setTimeout(() => {
+            setSequencerText("The clap adds rhythm and drive to your track");
+            setSequencerTextVisible(true);
+            
+            // Show Next button for clap personalization
+            setTimeout(() => {
+              setShowNextButton(true);
+            }, 2000);
+          }, 300);
+        }, 500);
+      }, 300);
+    } else if (progressionStage === 'clap-personal') {
+      // Show personal clap message and upgrade pattern
+      setProgressionStage('complete');
+      setTimeout(() => {
+        setSequencerTextVisible(false);
+        setTimeout(() => {
+          const personalClapText = getPersonalClapMessage();
+          setSequencerText(personalClapText);
+          setSequencerTextVisible(true);
+          
+          // Upgrade clap pattern based on user data - but only if earned
+          const basicClapPattern = [4, 12]; // Basic clap
+          const userFollowerCount = userSnapshot?.farcaster.followerCount || 0;
+          const personalizedClapPattern = generateClapPattern(userFollowerCount);
+          
+          // Only upgrade if it's different from basic
+          if (JSON.stringify(personalizedClapPattern) !== JSON.stringify(basicClapPattern)) {
+            setTimeout(() => {
+              setClapPattern(personalizedClapPattern);
+              audioEngineRef.current?.setClapPattern(personalizedClapPattern);
+            }, 500);
+          }
+        }, 300);
+      }, 300);
+    }
+  }, [progressionStage, generateKickPattern, getPersonalKickMessage, generateClapPattern, getPersonalClapMessage, userSnapshot]);
+
   const animateSquareTransition = useCallback(() => {
     console.log("Animation triggered - simple transition");
 
@@ -317,37 +483,12 @@ export default function CreatePage() {
       setTimeout(() => {
         setSequencerText("The kick drum is the heartbeat of techno");
         setSequencerTextVisible(true);
+        // Show Next button after educational text appears
+        setTimeout(() => {
+          setShowNextButton(true);
+        }, 1000);
       }, 500); // 500ms after sequencer appears
 
-      // After 4 beats, show personal text AND upgrade to their actual pattern
-      setTimeout(() => {
-        setSequencerTextVisible(false);
-        setTimeout(() => {
-          const personalText = getPersonalKickMessage();
-          setSequencerText(personalText);
-          setSequencerTextVisible(true);
-
-          // NOW upgrade to their actual pattern - dramatic transformation!
-          const userTxCount = userSnapshot?.onchain.transactionCount || 0;
-          const personalizedPattern = generateKickPattern(userTxCount);
-
-          // Only upgrade if it's different from basic
-          if (
-            JSON.stringify(personalizedPattern) !== JSON.stringify(basicPattern)
-          ) {
-            setTimeout(() => {
-              setKickPattern(personalizedPattern);
-              if (audioEngineRef.current) {
-                audioEngineRef.current.setKickPattern(personalizedPattern);
-              }
-              console.log(
-                "✨ Pattern upgraded from basic to personalized!",
-                personalizedPattern,
-              );
-            }, 500); // 500ms after personal text appears for dramatic effect
-          }
-        }, 300);
-      }, 2500); // 2.5 seconds total
     }, 300);
   }, [getPersonalKickMessage, userSnapshot, generateKickPattern]);
 
@@ -439,8 +580,9 @@ export default function CreatePage() {
           handleStepChange,
           setBeatIntensity,
         );
-        // Set the current kick pattern
-        audioEngineRef.current.setKickPattern(kickPattern);
+        // Always start with basic pattern, ignore state
+        const basicKickPattern = [0, 4, 8, 12];
+        audioEngineRef.current.setKickPattern(basicKickPattern);
         beatCountRef.current = 0;
       }
 
@@ -514,13 +656,15 @@ export default function CreatePage() {
               <>
                 {/* Title */}
                 <div className="absolute top-24 left-0 right-0 flex justify-center z-20">
-                  <h1 className="text-blue-600 text-3xl font-bold font-[var(--font-orbitron)] tracking-wide">
-                    It starts with a kick
+                  <h1 className={`text-3xl font-bold font-[var(--font-orbitron)] tracking-wide ${
+                    showClapTrack ? 'text-[#ffd12f]' : 'text-blue-600'
+                  }`}>
+                    {showClapTrack ? 'Now let\'s add a clap' : 'It starts with a kick'}
                   </h1>
                 </div>
 
                 {/* Sequencer Text */}
-                <div className="absolute bottom-16 left-0 right-0 flex justify-center z-20 px-8">
+                <div className="absolute bottom-32 left-0 right-0 flex justify-center z-20 px-8">
                   <div
                     className={`text-white text-lg font-bold font-[var(--font-orbitron)] tracking-wide text-center transition-opacity duration-300 ${
                       sequencerTextVisible ? "opacity-100" : "opacity-0"
@@ -545,7 +689,24 @@ export default function CreatePage() {
                     <DrumSequencer
                       currentStep={currentStep}
                       kickPattern={kickPattern}
+                      clapPattern={clapPattern}
+                      showClapTrack={showClapTrack}
                     />
+                  )}
+
+                  {/* Next Button */}
+                  {showNextButton && progressionStage !== 'complete' && (
+                    <div className="absolute bottom-0 left-0 right-0 z-10">
+                      <button
+                        onClick={handleNextClick}
+                        className="w-full bg-blue-600 text-white font-bold py-4 hover:bg-blue-700 transition-all duration-200 font-[var(--font-orbitron)] text-lg tracking-wide shadow-lg"
+                        style={{
+                          boxShadow: "0 0 20px rgba(59, 130, 246, 0.3)",
+                        }}
+                      >
+                        {progressionStage === 'kick-educational' || progressionStage === 'clap-educational' ? 'Customize' : 'Next'}
+                      </button>
+                    </div>
                   )}
                 </div>
               </>
