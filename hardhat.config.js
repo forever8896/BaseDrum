@@ -19,14 +19,16 @@ module.exports = {
       url: "https://sepolia.base.org",
       chainId: 84532,
       accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
-      gasPrice: 1000000000, // 1 gwei
+      gasPrice: 10000000, // 0.01 gwei (higher for faster deployment)
+      gas: 5000000, // Higher gas limit
     },
     // Base mainnet (for later)
     base: {
       url: "https://mainnet.base.org",
       chainId: 8453,
       accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
-      gasPrice: 1000000000, // 1 gwei
+      gasPrice: 1000000, // 0.001 gwei (much lower for Base)
+      gas: 2000000, // Reasonable gas limit
     }
   },
   etherscan: {

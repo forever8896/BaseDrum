@@ -15,8 +15,31 @@ async function main() {
   console.log("\nDeploying BaseDrumNFT...");
   const BaseDrumNFT = await hre.ethers.getContractFactory("BaseDrumNFT");
   
-  // Deploy with constructor arguments if needed (none in this case)
-  const baseDrumNFT = await BaseDrumNFT.deploy();
+  // Get gas estimate for deployment
+  const deployTransaction = await BaseDrumNFT.getDeployTransaction();
+  const gasEstimate = await hre.ethers.provider.estimateGas(deployTransaction);
+  const feeData = await hre.ethers.provider.getFeeData();
+  const gasPrice = feeData.gasPrice;
+  const estimatedCost = gasEstimate * gasPrice;
+  
+  console.log("Gas estimate:", gasEstimate.toString());
+  console.log("Gas price:", hre.ethers.formatUnits(gasPrice, "gwei"), "Gwei");
+  console.log("Estimated cost:", hre.ethers.formatEther(estimatedCost), "ETH");
+  
+  // Check if we have enough balance for deployment
+  if (balance < estimatedCost) {
+    console.log("❌ Insufficient balance for deployment");
+    console.log("Required:", hre.ethers.formatEther(estimatedCost), "ETH");
+    console.log("Available:", hre.ethers.formatEther(balance), "ETH");
+    return;
+  }
+
+  // Deploy with explicit gas settings for speed
+  console.log("✅ Starting deployment with higher gas price...");
+  const baseDrumNFT = await BaseDrumNFT.deploy({
+    gasLimit: 5000000,
+    gasPrice: hre.ethers.parseUnits("0.01", "gwei") // Higher gas price for priority
+  });
   
   // Wait for deployment
   await baseDrumNFT.waitForDeployment();

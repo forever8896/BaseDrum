@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { Transaction, TransactionButton, TransactionSponsor, TransactionStatus, TransactionStatusLabel, TransactionStatusAction } from '@coinbase/onchainkit/transaction';
+import { useMiniKit } from '@coinbase/onchainkit/minikit';
 import { SongData } from '../../lib/songSchema-new';
-import { baseSepolia } from 'wagmi/chains';
+import { base } from 'wagmi/chains';
 import { parseEther } from 'viem';
 
 // Contract ABI for the mint function
@@ -53,7 +54,7 @@ export const BASEDRUM_NFT_ABI = [
   },
 ] as const;
 
-// Contract address on Base Sepolia
+// Contract address on Base Mainnet
 const CONTRACT_ADDRESS = '0x20585aCAD03AC611BeE6Ed70E6EF6D0E9A5AD18c';
 
 interface MintSongButtonTransactionProps {
@@ -116,11 +117,15 @@ export function MintSongButtonTransaction({
   children = "Mint as NFT",
 }: MintSongButtonTransactionProps) {
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
+  const { context } = useMiniKit();
 
   // Convert song data to contract format
   const contractData = convertSongDataToContractFormat(songData, creatorFid);
 
-  // Prepare transaction calls
+  // Log context for debugging
+  console.log('MiniKit context:', context);
+
+  // Prepare transaction calls for OnchainKit
   const calls = [
     {
       to: CONTRACT_ADDRESS as `0x${string}`,
@@ -168,7 +173,7 @@ export function MintSongButtonTransaction({
   return (
     <div className={`mint-container ${className}`}>
       <Transaction
-        chainId={baseSepolia.id}
+        chainId={base.id}
         contracts={contracts}
         onStatus={handleOnStatus}
       >
@@ -187,7 +192,7 @@ export function MintSongButtonTransaction({
       {transactionHash && (
         <div className="mt-4 text-center">
           <a 
-            href={`https://sepolia.basescan.org/tx/${transactionHash}`} 
+            href={`https://basescan.org/tx/${transactionHash}`} 
             target="_blank" 
             rel="noopener noreferrer"
             className="text-blue-600 hover:text-blue-800 underline"
