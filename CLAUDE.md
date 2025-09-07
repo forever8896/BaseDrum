@@ -105,6 +105,30 @@ There are no test scripts defined in package.json. Tests would need to be set up
 - Pattern data is passed via callback functions to ensure real-time updates
 - **CRITICAL**: The beat must ALWAYS continue playing during all animations and transitions - never stop the audio engine during UI changes
 
+### Personalized Music Generation Pattern
+**IMPORTANT**: Follow this UX pattern for all future track additions:
+
+#### Progressive Revelation Pattern:
+1. **Always Start Basic**: Every new track/instrument starts with the most basic, standard pattern
+2. **Show Educational Context**: Brief explanation of what the instrument does in techno
+3. **Reveal Personal Data**: Show user's specific metrics that influence this track
+4. **Dramatic Transformation**: Upgrade pattern in real-time based on user data (both audio + visual)
+
+#### Implementation Strategy:
+- Store both "basic" and "personalized" patterns for each instrument
+- Use `setTimeout` delays to create dramatic reveals (500ms after text appears)
+- Only upgrade if personalized pattern differs from basic
+- Log transformations for debugging: `console.log('✨ Pattern upgraded!')`
+
+#### Data-to-Music Mappings:
+- **Kick Drum**: Transaction count → rhythm complexity
+- **Hi-hats**: Follower count → syncopation patterns  
+- **Bass**: Token diversity → note variations
+- **Snare**: DeFi protocols → placement patterns
+- **Effects**: Wallet age → reverb/sophistication
+
+This creates powerful "aha moments" where users literally hear their onchain activity transform the music.
+
 ### Frame Integration
 - App supports Farcaster Frame embedding with MiniKit
 - Frame metadata is configured in `layout.tsx`
