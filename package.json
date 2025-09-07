@@ -10,7 +10,9 @@
     "compile": "hardhat compile",
     "deploy:testnet": "hardhat run scripts/deploy.js --network baseSepolia",
     "deploy:mainnet": "hardhat run scripts/deploy.js --network base",
-    "verify": "hardhat verify --network baseSepolia"
+    "verify": "hardhat verify --network baseSepolia",
+    "change-price:mainnet": "hardhat run scripts/changePriceToZero.js --network base",
+    "change-price:testnet": "hardhat run scripts/changePriceToZero.js --network baseSepolia"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.61.0",

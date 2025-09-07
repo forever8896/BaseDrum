@@ -130,7 +130,7 @@ export function MintSongButtonTransaction({
     {
       to: CONTRACT_ADDRESS as `0x${string}`,
       data: undefined, // OnchainKit will encode this for us
-      value: parseEther('0.001'), // Mint price
+      value: parseEther('0'), // Free minting
     }
   ];
 
@@ -145,6 +145,7 @@ export function MintSongButtonTransaction({
         contractData.trackNames,
         contractData.trackData,
       ],
+      value: parseEther('0'), // Free minting
     }
   ];
 
