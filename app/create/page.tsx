@@ -51,7 +51,7 @@ function PulsatingSquare({
   onClick,
   flashText,
   squareRef,
-}: PulsatingSquareProps & { squareRef?: React.RefObject<HTMLDivElement> }) {
+}: PulsatingSquareProps & { squareRef?: React.RefObject<HTMLDivElement | null> }) {
   return (
     <div className="relative" ref={squareRef}>
       <div
@@ -358,7 +358,7 @@ export default function CreatePage() {
     if (isConnected && address && !userSnapshot && !isLoadingData) {
       fetchUserData();
     }
-  }, [isConnected, address, userSnapshot, isLoadingData]);
+  }, [isConnected, address, userSnapshot, isLoadingData, fetchUserData]);
 
   // Helper function to update song data safely with validation
   const updateSongData = useCallback((updater: (current: SongData) => SongData) => {
@@ -434,45 +434,33 @@ export default function CreatePage() {
     };
   }, []);
 
-
-  // Mock data for testing heavy user patterns (keep for demo purposes)
-  const createMockHeavyUserData = (): UserDataSnapshot => ({
-    farcaster: {
-      fid: 12345,
-      username: "techno_dev",
-      displayName: "Techno Developer",
-      followerCount: 1250,
-      followingCount: 500,
-      verifications: ["0x1234..."],
-    },
-    context: {
-      entryPoint: "launcher" as const,
-      platformType: "desktop" as const,
-      added: true,
-    },
-    wallet: {
-      address: address || "0x1234567890123456789012345678901234567890", // Use real address
-      isConnected: true,
-      balance: "2.5",
-      chainId: 8453,
-    },
-    onchain: {
-      transactionCount: 247, // Heavy user with complex pattern
-      firstTransactionDate: new Date("2023-06-15"),
-      lastActivityDate: new Date(),
-      tokenCount: 15,
-      nftCount: 8,
-      defiProtocols: ["Uniswap", "Aave", "Compound"],
-      userType: "power_user",
-      activityLevel: "high",
-    },
-    prices: {
-      eth: 2500,
-      btc: 45000,
-      fetchedAt: new Date(),
-    },
-    timestamp: new Date(),
-  });
+  // Test function to make client-side API calls visible in network tab
+  const testNeynarAPI = async () => {
+    try {
+      console.log("Testing Neynar API from client...");
+      
+      // First, test our test endpoint
+      const testResponse = await fetch('/api/test-neynar?fid=12152');
+      const testData = await testResponse.json();
+      console.log("Test API response:", testData);
+      
+      // Also test the farcaster-data endpoint
+      if (context && typeof context === 'object') {
+        const ctx = context as Record<string, unknown>;
+        if (ctx.user && typeof ctx.user === 'object') {
+          const user = ctx.user as Record<string, unknown>;
+          if (typeof user.fid === 'number') {
+            console.log("Testing with user FID:", user.fid);
+            const farcasterResponse = await fetch(`/api/farcaster-data?fid=${user.fid}`);
+            const farcasterData = await farcasterResponse.json();
+            console.log("Farcaster API response:", farcasterData);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Test API call failed:", error);
+    }
+  };
 
   const fetchUserData = async () => {
     if (!address) return;
@@ -480,12 +468,27 @@ export default function CreatePage() {
     setIsLoadingData(true);
     try {
       console.log("Fetching user data for personalized track generation...");
+      console.log("MiniKit context:", context);
+      console.log("Connected address:", address);
+      
+      // Debug the context structure
+      if (context && typeof context === 'object') {
+        const ctx = context as Record<string, unknown>;
+        console.log("Context keys:", Object.keys(ctx));
+        console.log("Context.user:", ctx.user);
+        if (ctx.user && typeof ctx.user === 'object') {
+          const user = ctx.user as Record<string, unknown>;
+          console.log("User keys:", Object.keys(user));
+          console.log("User FID:", user.fid);
+          console.log("User follower count:", user.followerCount);
+        }
+      }
 
-      // Use mock data for demo, but with real wallet address for acid melody
-      const snapshot = createMockHeavyUserData();
+      // Use the actual DataFetcher to get real user data
+      const snapshot = await dataFetcher.fetchUserSnapshot(context, address);
       setUserSnapshot(snapshot);
 
-      // Generate kick pattern based on transaction count
+      // Generate kick pattern based on actual transaction count
       const txCount = snapshot.onchain.transactionCount || 0;
       const generatedPattern = generateKickPattern(txCount);
       
@@ -505,6 +508,7 @@ export default function CreatePage() {
         `Generated kick pattern for ${txCount} transactions:`,
         generatedPattern,
       );
+      console.log("User snapshot:", snapshot);
 
       // Update audio engine with new pattern if initialized
       if (audioEngineRef.current) {
@@ -557,6 +561,14 @@ export default function CreatePage() {
       return "You're keeping the standard snare on beats 2 and 4";
     }
     const followerCount = userSnapshot.farcaster.followerCount || 0;
+    
+    // Debug logging
+    console.log('Generating clap message with data:', {
+      followerCount,
+      farcasterData: userSnapshot.farcaster,
+      hasFollowerCount: userSnapshot.farcaster.followerCount !== undefined
+    });
+    
     if (followerCount === 0) {
       return "Because you have no followers yet, you're keeping the standard snare on beats 2 and 4";
     } else if (followerCount <= 50) {

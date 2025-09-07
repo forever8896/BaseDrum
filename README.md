@@ -145,3 +145,23 @@ BaseDrum features a sophisticated architecture designed for real-time music gene
 ---
 
 *Built for ETHWarsaw 2025 Hackathon - Transforming onchain identity into sound*
+
+## Enhanced Data Integration
+
+The app now supports real Farcaster data fetching for more accurate musical generation:
+
+### Farcaster API Integration
+To get real follower counts and social data, set up a Neynar API key:
+
+1. Get an API key from [Neynar](https://neynar.com/)
+2. Add to your environment variables:
+```bash
+NEYNAR_API_KEY=your_neynar_api_key_here
+```
+
+### Data Sources
+- **Farcaster**: Real follower/following counts, username, display name, profile picture
+- **Onchain**: Transaction count, token holdings, NFT count, DeFi protocol usage
+- **Crypto Prices**: Real-time ETH/BTC prices for dynamic musical elements
+
+The system gracefully falls back to estimation methods if API keys are not available.
