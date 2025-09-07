@@ -1,4 +1,3 @@
-import { writeContract, waitForTransactionReceipt } from '@wagmi/core';
 import { parseEther } from 'viem';
 import { SongData } from './songSchema-new';
 import { base, baseSepolia } from 'wagmi/chains';

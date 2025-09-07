@@ -329,16 +329,55 @@ export class DataFetcher {
     try {
       snapshot.wallet.chainId = 8453; // Base mainnet
       
-      // 1. Use OnchainKit's getPortfolios API for portfolio data
+      // 1. Try Basescan API first for comprehensive transaction data
+      try {
+        console.log('Attempting to fetch transaction data from Basescan API...');
+        const basescanApiKey = process.env.BASESCAN_API_KEY;
+        if (!basescanApiKey) {
+          console.warn('No Basescan API key found in environment variables');
+          throw new Error('Basescan API key not configured');
+        }
+        const basescanResponse = await fetch(`https://api.basescan.org/api?module=account&action=txlist&address=${address}&sort=desc&apikey=${basescanApiKey}`);
+        
+        if (basescanResponse.ok) {
+          const basescanData = await basescanResponse.json();
+          if (basescanData.status === "1" && Array.isArray(basescanData.result)) {
+            const txCount = basescanData.result.length;
+            snapshot.onchain.transactionCount = txCount;
+            console.log(`Basescan API: Found ${txCount} transactions for address ${address}`);
+            
+            // Get first and last transaction dates
+            if (basescanData.result.length > 0) {
+              const sortedTxs = basescanData.result.sort((a: any, b: any) => parseInt(a.timeStamp) - parseInt(b.timeStamp));
+              snapshot.onchain.firstTransactionDate = new Date(parseInt(sortedTxs[0].timeStamp) * 1000);
+              snapshot.onchain.lastActivityDate = new Date(parseInt(sortedTxs[sortedTxs.length - 1].timeStamp) * 1000);
+            }
+          } else {
+            console.warn('Basescan API returned no results or error:', basescanData.message);
+          }
+        } else {
+          console.warn('Basescan API request failed with status:', basescanResponse.status);
+        }
+      } catch (basescanError) {
+        console.error('Basescan API failed:', basescanError);
+      }
+      
+      // 2. Use OnchainKit's getPortfolios API for portfolio data
       const { getPortfolios } = await import('@coinbase/onchainkit/api');
       
       try {
+        console.log(`🔍 Fetching portfolio data for address: ${address}`);
         const portfolioResponse = await getPortfolios({
           addresses: [address as `0x${string}`],
         });
         
+        console.log('🔍 Portfolio response:', JSON.stringify(portfolioResponse, null, 2));
+        
         if ('portfolios' in portfolioResponse && portfolioResponse.portfolios && portfolioResponse.portfolios.length > 0) {
           const portfolio = portfolioResponse.portfolios[0];
+          console.log('🔍 Portfolio data:', JSON.stringify(portfolio, null, 2));
+          console.log('🔍 Token balances:', portfolio.tokenBalances);
+          console.log('🔍 Token count:', portfolio.tokenBalances?.length || 0);
           
           // Extract real wallet data from OnchainKit API
           snapshot.wallet.balance = `${portfolio.portfolioBalanceInUsd} USD`;
@@ -350,19 +389,53 @@ export class DataFetcher {
             nftCount: undefined,
             defiProtocols: this.analyzeDefiProtocols(portfolio.tokenBalances || []),
           };
+        } else {
+          console.log('🔍 No portfolios found in response');
         }
       } catch (apiError) {
         console.error('OnchainKit API call failed:', apiError);
       }
 
-      // 2. Fetch comprehensive onchain data via RPC with fallback endpoints
-      try {
-        // List of Base RPC endpoints to try
-        const rpcEndpoints = [
-          'https://mainnet.base.org',
-          'https://base.llamarpc.com',
-          'https://base-mainnet.public.blastapi.io'
-        ];
+      // Fallback: Use Basescan API for token data if OnchainKit didn't provide it
+      if (snapshot.onchain.tokenCount === undefined) {
+        try {
+          console.log('🔍 OnchainKit did not provide token data, trying Basescan API...');
+          const basescanApiKey = process.env.BASESCAN_API_KEY;
+          if (!basescanApiKey) {
+            console.warn('No Basescan API key found for token data');
+            throw new Error('Basescan API key not configured');
+          }
+          const tokenResponse = await fetch(`https://api.basescan.org/api?module=account&action=tokenlist&address=${address}&apikey=${basescanApiKey}`);
+          
+          if (tokenResponse.ok) {
+            const tokenData = await tokenResponse.json();
+            if (tokenData.status === "1" && Array.isArray(tokenData.result)) {
+              snapshot.onchain.tokenCount = tokenData.result.length;
+              console.log(`🔍 Basescan API: Found ${tokenData.result.length} tokens for address ${address}`);
+              
+              if (tokenData.result.length > 0) {
+                console.log('🔍 First few tokens:', tokenData.result.slice(0, 3).map((t: any) => `${t.name} (${t.symbol})`));
+              }
+            } else {
+              console.log('🔍 Basescan tokenlist returned no results');
+              snapshot.onchain.tokenCount = 0;
+            }
+          }
+        } catch (tokenError) {
+          console.error('🔍 Basescan token API failed:', tokenError);
+          snapshot.onchain.tokenCount = 0;
+        }
+      }
+
+      // 3. Fetch comprehensive onchain data via RPC with fallback endpoints (only if Basescan didn't provide transaction count)
+      if (snapshot.onchain.transactionCount === undefined) {
+        try {
+          // List of Base RPC endpoints to try
+          const rpcEndpoints = [
+            'https://mainnet.base.org',
+            'https://base.llamarpc.com',
+            'https://base-mainnet.public.blastapi.io'
+          ];
         
         let txCountResponse = null;
         let lastError = null;
@@ -454,9 +527,10 @@ export class DataFetcher {
                                          txCount > 10 ? 'casual' : 'new';
         }
 
-      } catch (rpcError) {
-        console.error('RPC data fetch failed:', rpcError);
-      }
+        } catch (rpcError) {
+          console.error('RPC data fetch failed:', rpcError);
+        }
+      } // Close the if statement for checking if transactionCount is undefined
 
       // Ensure all properties exist (no fallback mock data)
       if (snapshot.onchain.transactionCount === undefined) {

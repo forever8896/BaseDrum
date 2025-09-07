@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useChainId } from 'wagmi';
+import { baseSepolia } from 'wagmi/chains';
 import { mintBaseDrumNFT, getShareableURL, getTransactionURL } from '../lib/contract-interactions';
 import { SongData } from '../lib/songSchema-new';
 
@@ -45,12 +46,12 @@ export function useMintSong() {
         throw new Error('Invalid song data: missing title or tracks');
       }
 
-      // Mint the NFT
-      const mintResult = await mintBaseDrumNFT(songData, creatorFid, chainId);
+      // Mint the NFT (force Sepolia for testing)
+      const mintResult = await mintBaseDrumNFT(songData, creatorFid, baseSepolia.id);
       
-      // Generate URLs
-      const shareableURL = getShareableURL(mintResult.tokenId, chainId);
-      const transactionURL = getTransactionURL(mintResult.transactionHash, chainId);
+      // Generate URLs (use Sepolia)
+      const shareableURL = getShareableURL(mintResult.tokenId, baseSepolia.id);
+      const transactionURL = getTransactionURL(mintResult.transactionHash, baseSepolia.id);
 
       const result: MintSongResult = {
         success: true,
@@ -114,12 +115,10 @@ export function useMintSong() {
  * For cases where you don't need the loading/error state
  */
 export function useMintSongSimple() {
-  const chainId = useChainId();
-
   return async (songData: SongData, creatorFid: number): Promise<MintSongResult> => {
-    const mintResult = await mintBaseDrumNFT(songData, creatorFid, chainId);
-    const shareableURL = getShareableURL(mintResult.tokenId, chainId);
-    const transactionURL = getTransactionURL(mintResult.transactionHash, chainId);
+    const mintResult = await mintBaseDrumNFT(songData, creatorFid, baseSepolia.id);
+    const shareableURL = getShareableURL(mintResult.tokenId, baseSepolia.id);
+    const transactionURL = getTransactionURL(mintResult.transactionHash, baseSepolia.id);
 
     return {
       success: true,

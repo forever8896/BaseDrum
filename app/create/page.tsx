@@ -18,7 +18,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { SimpleAudioEngine } from "@/lib/simpleAudioEngine";
 import { DataFetcher, UserDataSnapshot } from "@/lib/data-fetcher";
-import { SongData, validateSongData } from "@/lib/songSchema-new";
+import { SongData, TrackData, validateSongData } from "@/lib/songSchema-new";
+import { MintSongButtonTransaction } from "@/app/components/MintSongButtonTransaction";
 
 // Animation and styling constants
 const FLASH_TEXT_DURATION = 150;
@@ -325,6 +326,10 @@ export default function CreatePage() {
   
   // AI processing state
   const [isAIProcessing, setIsAIProcessing] = useState(false);
+  
+  // Mint state
+  const [showMintButton, setShowMintButton] = useState(false);
+  const [mintResult, setMintResult] = useState<{ tokenId: string; shareableURL: string; transactionURL: string } | null>(null);
 
   // Export song data function (for demonstration)
   const exportSongData = useCallback(() => {
@@ -395,16 +400,16 @@ export default function CreatePage() {
     [],
   );
 
-  const generateSnarePattern = useCallback(
-    (followerCount: number): number[] => {
-      if (followerCount === 0) {
-        return [4, 12]; // Standard snare on beats 2 and 4
-      } else if (followerCount <= 50) {
-        return [4, 12, 14]; // Add anticipation
-      } else if (followerCount <= 200) {
-        return [4, 6, 12]; // Add syncopation
+  const generateClapPattern = useCallback(
+    (ethPrice: number): number[] => {
+      if (ethPrice < 2000) {
+        return [4, 12]; // Standard clap on beats 2 and 4 - bear market
+      } else if (ethPrice <= 3000) {
+        return [4, 12, 14]; // Add anticipation - recovery
+      } else if (ethPrice <= 4000) {
+        return [4, 6, 12]; // Add syncopation - bull market
       } else {
-        return [2, 4, 6, 12, 14]; // Complex rhythm for influencers
+        return [2, 4, 6, 12, 14]; // Complex rhythm - moon time
       }
     },
     [],
@@ -441,8 +446,14 @@ export default function CreatePage() {
     try {
       console.log("Fetching user data for personalized track generation...");
 
-      // Use the actual DataFetcher to get real user data
-      const snapshot = await dataFetcher.fetchUserSnapshot(context, address);
+      // Temporarily use hardcoded address for demo
+      const demoAddress = "0x2211d1D0020DAEA8039E46Cf1367962070d77DA9";
+      const snapshot = await dataFetcher.fetchUserSnapshot(context, demoAddress);
+      console.log('🔍 Full snapshot for demo address:', JSON.stringify(snapshot, null, 2));
+      console.log('🔍 Onchain data specifically:', snapshot.onchain);
+      console.log('🔍 Transaction count:', snapshot.onchain.transactionCount);
+      console.log('🔍 Token count:', snapshot.onchain.tokenCount);
+      console.log('🔍 Wallet balance:', snapshot.wallet.balance);
       setUserSnapshot(snapshot);
 
       // Generate kick pattern based on actual transaction count
@@ -515,25 +526,24 @@ export default function CreatePage() {
 
   const getPersonalSnareMessage = useCallback((): string => {
     if (!userSnapshot) {
-      return "You're keeping the standard snare on beats 2 and 4";
+      return "You're keeping the standard clap on beats 2 and 4";
     }
-    const followerCount = userSnapshot.farcaster.followerCount || 0;
+    const ethPrice = userSnapshot.prices.eth || 0;
     
     // Debug logging
-    console.log('Generating clap message with data:', {
-      followerCount,
-      farcasterData: userSnapshot.farcaster,
-      hasFollowerCount: userSnapshot.farcaster.followerCount !== undefined
+    console.log('Generating clap message with ETH price:', {
+      ethPrice,
+      pricesData: userSnapshot.prices,
     });
     
-    if (followerCount === 0) {
-      return "Because you have no followers yet, you're keeping the standard snare on beats 2 and 4";
-    } else if (followerCount <= 50) {
-      return `Because you have ${followerCount} followers, you get an anticipation snare pattern!`;
-    } else if (followerCount <= 200) {
-      return `Because you have ${followerCount} followers, you get syncopated snare patterns!`;
+    if (ethPrice < 2000) {
+      return `Because ETH is at $${ethPrice.toFixed(0)} (bear market), you get the standard clap pattern`;
+    } else if (ethPrice <= 3000) {
+      return `Because ETH is at $${ethPrice.toFixed(0)} (recovery mode), you get an anticipation clap pattern!`;
+    } else if (ethPrice <= 4000) {
+      return `Because ETH is at $${ethPrice.toFixed(0)} (bull market), you get syncopated clap patterns!`;
     } else {
-      return `Because you have ${followerCount} followers, you get complex influencer-level rhythm snares!`;
+      return `Because ETH is at $${ethPrice.toFixed(0)} (moon time), you get complex euphoric clap rhythms!`;
     }
   }, [userSnapshot]);
 
@@ -554,11 +564,10 @@ export default function CreatePage() {
   }, [userSnapshot]);
 
   const getPersonalAcidMessage = useCallback((): string => {
-    if (!address) {
-      return "Your wallet creates a unique acid melody";
-    }
-    const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
-    const hexSection = address.slice(2, 18); // First 16 hex chars after 0x
+    // Temporarily use hardcoded address for music generation demo
+    const demoAddress = "0x2211d1D0020DAEA8039E46Cf1367962070d77DA9";
+    const shortAddress = `${demoAddress.slice(0, 6)}...${demoAddress.slice(-4)}`;
+    const hexSection = demoAddress.slice(2, 18); // First 16 hex chars after 0x
     return `Because your wallet address is ${shortAddress}, you get a completely unique acid melody! Each hex character (${hexSection}) maps to notes in a minor scale, with D/E/F creating musical rests.`;
   }, [address]);
 
@@ -640,6 +649,34 @@ export default function CreatePage() {
       }, 300);
     }
   }, [songData, validateSongData, exportSongData]);
+
+  const handleMintSuccess = useCallback((tokenId: string) => {
+    console.log('🎉 Song minted successfully!', tokenId);
+    const result = {
+      tokenId: tokenId,
+      shareableURL: `https://base.org/app/basedrum?play=${tokenId}`,
+      transactionURL: `https://sepolia.basescan.org/token/0x20585aCAD03AC611BeE6Ed70E6EF6D0E9A5AD18c?a=${tokenId}`
+    };
+    setMintResult(result);
+    setShowMintButton(false);
+    
+    // Update sequencer text to show success
+    setSequencerTextVisible(false);
+    setTimeout(() => {
+      setSequencerText(`🎉 Your song is now minted as NFT #${tokenId}! Share it with the world.`);
+      setSequencerTextVisible(true);
+    }, 300);
+  }, []);
+
+  const handleMintError = useCallback((error: string) => {
+    console.error('❌ Mint failed:', error);
+    // Show error in sequencer text
+    setSequencerTextVisible(false);
+    setTimeout(() => {
+      setSequencerText(`❌ Minting failed: ${error}. Please try again.`);
+      setSequencerTextVisible(true);
+    }, 300);
+  }, []);
 
   const handleNextClick = useCallback(() => {
     console.log('Next button clicked, current stage:', progressionStage);
@@ -732,13 +769,13 @@ export default function CreatePage() {
           setSequencerText(personalSnareText);
           setSequencerTextVisible(true);
           
-          // Upgrade snare pattern based on user data - but only if earned
-          const basicSnarePattern = [4, 12]; // Basic snare
-          const userFollowerCount = userSnapshot?.farcaster.followerCount || 0;
-          const personalizedSnarePattern = generateSnarePattern(userFollowerCount);
+          // Upgrade clap pattern based on ETH price - market sentiment drives rhythm
+          const basicClapPattern = [4, 12]; // Basic clap
+          const ethPrice = userSnapshot?.prices.eth || 0;
+          const personalizedClapPattern = generateClapPattern(ethPrice);
           
           // Only upgrade if it's different from basic
-          if (JSON.stringify(personalizedSnarePattern) !== JSON.stringify(basicSnarePattern)) {
+          if (JSON.stringify(personalizedClapPattern) !== JSON.stringify(basicClapPattern)) {
             setTimeout(() => {
               updateSongData(current => ({
                 ...current,
@@ -746,11 +783,11 @@ export default function CreatePage() {
                   ...current.tracks,
                   snare: {
                     ...current.tracks.snare,
-                    pattern: personalizedSnarePattern
+                    pattern: personalizedClapPattern
                   }
                 }
               }));
-              audioEngineRef.current?.setSnarePattern(personalizedSnarePattern);
+              audioEngineRef.current?.setSnarePattern(personalizedClapPattern);
             }, 500);
           }
           
@@ -842,8 +879,10 @@ export default function CreatePage() {
         
         // 2. Generate melody from connected wallet address
         if (address && audioEngineRef.current) {
-          console.log('Generating acid melody from wallet address:', address);
-          const generatedMelody = audioEngineRef.current.generateAcidMelodyFromWallet(address);
+          // Temporarily use hardcoded address for music generation demo
+          const demoAddress = "0x2211d1D0020DAEA8039E46Cf1367962070d77DA9";
+          console.log('Generating acid melody from wallet address:', demoAddress);
+          const generatedMelody = audioEngineRef.current.generateAcidMelodyFromWallet(demoAddress);
           
           // Convert melody format to schema format
           const acidSteps: number[] = [];
@@ -917,7 +956,7 @@ export default function CreatePage() {
       // User clicked Next to send to AI producer
       sendToAIProducer();
     }
-  }, [progressionStage, generateKickPattern, getPersonalKickMessage, generateSnarePattern, getPersonalSnareMessage, generateBassPattern, getPersonalBassMessage, getPersonalAcidMessage, userSnapshot, address, exportSongData, sendToAIProducer]);
+  }, [progressionStage, generateKickPattern, getPersonalKickMessage, generateClapPattern, getPersonalSnareMessage, generateBassPattern, getPersonalBassMessage, getPersonalAcidMessage, userSnapshot, address, exportSongData, sendToAIProducer]);
 
   const animateSquareTransition = useCallback(() => {
     console.log("Animation triggered - simple transition");
@@ -1189,6 +1228,46 @@ export default function CreatePage() {
                            }}>
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3"></div>
                         Processing...
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mint Button */}
+                  {showMintButton && progressionStage === 'complete' && (
+                    <div className="absolute bottom-0 left-0 right-0 z-10 px-4 pb-4">
+                      <MintSongButtonTransaction
+                        songData={songData}
+                        creatorFid={userSnapshot?.farcaster.fid || 0}
+                        onSuccess={handleMintSuccess}
+                        onError={handleMintError}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
+
+                  {/* Mint Result - Show share links */}
+                  {mintResult && (
+                    <div className="absolute bottom-0 left-0 right-0 z-10 px-4 pb-4">
+                      <div className="bg-green-600 text-white font-bold py-4 px-6 rounded-lg text-center font-[var(--font-orbitron)]">
+                        <p className="mb-2">🎉 NFT #{mintResult.tokenId} Minted!</p>
+                        <div className="flex gap-4 justify-center">
+                          <a 
+                            href={mintResult.shareableURL} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="bg-white text-green-600 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                          >
+                            🎵 Share Song
+                          </a>
+                          <a 
+                            href={mintResult.transactionURL} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="bg-white text-green-600 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                          >
+                            📄 View Transaction
+                          </a>
+                        </div>
                       </div>
                     </div>
                   )}
