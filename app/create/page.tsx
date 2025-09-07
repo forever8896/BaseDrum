@@ -67,9 +67,8 @@ function PulsatingSquare({
       {flashText && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
           <div
-            className="text-white font-black text-6xl tracking-wide"
+            className="text-white font-black text-6xl tracking-wide font-orbitron"
             style={{
-              fontFamily: "Helvetica, Arial, sans-serif",
               textShadow: "0 0 10px rgba(0,0,0,0.5)",
               animation: "flash-in 0.15s ease-out",
             }}
@@ -947,7 +946,7 @@ export default function CreatePage() {
       }, 300);
     } else if (progressionStage === 'acid-personal') {
       // Show personal acid message, then transition to AI ready stage
-      setProgressionStage('ai-ready');
+      setProgressionStage('complete');
       setTimeout(() => {
         setSequencerTextVisible(false);
         setTimeout(() => {
@@ -955,16 +954,16 @@ export default function CreatePage() {
           setSequencerText(personalAcidText);
           setSequencerTextVisible(true);
           
-          // After showing personal message, show AI producer message
+          // After showing personal message, go straight to minting
           setTimeout(() => {
             setSequencerTextVisible(false);
             setTimeout(() => {
-              setSequencerText("Ok we've got the basics down. Let's send this to our AI producer");
+              setSequencerText("🎵 Your personalized techno track is complete! Ready to mint as an NFT? 🎵");
               setSequencerTextVisible(true);
               
-              // Show Next button for AI producer step
+              // Show mint button instead of next button
               setTimeout(() => {
-                setShowNextButton(true);
+                setShowMintButton(true);
               }, 1000);
             }, 300);
           }, 3000);
@@ -1120,7 +1119,7 @@ export default function CreatePage() {
   }, [handleStepChange, showSequencer]);
 
   return (
-    <div className="h-screen bg-black text-white flex flex-col relative overflow-hidden">
+    <div className="h-screen bg-black text-white flex flex-col relative overflow-hidden font-exo">
       <style jsx>{`
         @keyframes flash-in {
           0% {
@@ -1173,7 +1172,7 @@ export default function CreatePage() {
       <div className="flex-1 flex items-center justify-center relative z-10">
         {!isConnected ? (
           <Wallet className="z-10">
-            <ConnectWallet className="bg-[var(--app-accent)] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-opacity-80 transition-colors min-w-48">
+            <ConnectWallet className="bg-[var(--app-accent)] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-opacity-80 transition-colors min-w-48 font-orbitron">
               Connect Wallet
             </ConnectWallet>
           </Wallet>
@@ -1183,7 +1182,7 @@ export default function CreatePage() {
               <>
                 {/* Title */}
                 <div className="absolute top-24 left-0 right-0 flex justify-center z-20">
-                  <h1 className={`text-3xl font-bold font-[var(--font-orbitron)] tracking-wide ${
+                  <h1 className={`text-3xl font-bold font-orbitron tracking-wide ${
                     isPlayingAIVersion ? 'text-green-400' : showAcidTrack ? 'text-[#fea8cd]' : showBassTrack ? 'text-[#b6f569]' : showSnareTrack ? 'text-[#ffd12f]' : 'text-blue-600'
                   }`}>
                     {isPlayingAIVersion ? 'Your Complete Techno Track' : showAcidTrack ? 'Your wallet\'s melody' : showBassTrack ? 'Finally, let\'s add bass' : showSnareTrack ? 'Now let\'s add a snare' : 'It starts with a kick'}
@@ -1193,7 +1192,7 @@ export default function CreatePage() {
                 {/* Sequencer Text */}
                 <div className="absolute bottom-32 left-0 right-0 flex justify-center z-20 px-8">
                   <div
-                    className={`text-white text-lg font-bold font-[var(--font-orbitron)] tracking-wide text-center transition-opacity duration-300 ${
+                    className={`text-white text-lg font-bold font-orbitron tracking-wide text-center transition-opacity duration-300 ${
                       sequencerTextVisible ? "opacity-100" : "opacity-0"
                     }`}
                     style={{
@@ -1209,14 +1208,14 @@ export default function CreatePage() {
                 {/* Sequencer */}
                 <div className="absolute inset-0 flex items-center justify-center z-20">
                   {isLoadingData ? (
-                    <div className="text-white text-lg font-[var(--font-orbitron)]">
+                    <div className="text-white text-lg font-orbitron">
                       Analyzing your onchain activity...
                     </div>
                   ) : isPlayingAIVersion ? (
-                    <div className="text-center font-[var(--font-orbitron)]">
+                    <div className="text-center">
                       <div className="text-6xl mb-4">🎵</div>
-                      <div className="text-xl text-gray-300">Playing full 32-bar arrangement</div>
-                      <div className="text-sm text-gray-500 mt-2">Listen to your complete techno journey</div>
+                      <div className="text-xl text-gray-300 font-orbitron">Playing full 32-bar arrangement</div>
+                      <div className="text-sm text-gray-500 mt-2 font-exo">Listen to your complete techno journey</div>
                     </div>
                   ) : (
                     <DrumSequencer
@@ -1233,7 +1232,7 @@ export default function CreatePage() {
                     <div className="absolute bottom-0 left-0 right-0 z-10">
                       <button
                         onClick={handleNextClick}
-                        className="w-full bg-blue-600 text-white font-bold py-4 hover:bg-blue-700 transition-all duration-200 font-[var(--font-orbitron)] text-lg tracking-wide shadow-lg"
+                        className="w-full bg-blue-600 text-white font-bold py-4 hover:bg-blue-700 transition-all duration-200 font-orbitron text-lg tracking-wide shadow-lg"
                         style={{
                           boxShadow: "0 0 20px rgba(59, 130, 246, 0.3)",
                         }}
@@ -1246,7 +1245,7 @@ export default function CreatePage() {
                   {/* AI Processing Spinner */}
                   {isAIProcessing && (
                     <div className="absolute bottom-0 left-0 right-0 z-10">
-                      <div className="w-full bg-blue-600 text-white font-bold py-4 font-[var(--font-orbitron)] text-lg tracking-wide shadow-lg flex items-center justify-center"
+                      <div className="w-full bg-blue-600 text-white font-bold py-4 font-orbitron text-lg tracking-wide shadow-lg flex items-center justify-center"
                            style={{
                              boxShadow: "0 0 20px rgba(59, 130, 246, 0.3)",
                            }}>
@@ -1272,14 +1271,14 @@ export default function CreatePage() {
                   {/* Mint Result - Show share links */}
                   {mintResult && (
                     <div className="absolute bottom-0 left-0 right-0 z-10 px-4 pb-4">
-                      <div className="bg-green-600 text-white font-bold py-4 px-6 rounded-lg text-center font-[var(--font-orbitron)]">
+                      <div className="bg-green-600 text-white font-bold py-4 px-6 rounded-lg text-center font-orbitron">
                         <p className="mb-2">🎉 NFT #{mintResult.tokenId} Minted!</p>
                         <div className="flex gap-4 justify-center">
                           <a 
                             href={mintResult.shareableURL} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="bg-white text-green-600 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                            className="bg-white text-green-600 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors font-orbitron"
                           >
                             🎵 Share Song
                           </a>
@@ -1287,7 +1286,7 @@ export default function CreatePage() {
                             href={mintResult.transactionURL} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="bg-white text-green-600 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                            className="bg-white text-green-600 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors font-orbitron"
                           >
                             📄 View Transaction
                           </a>
@@ -1317,7 +1316,7 @@ export default function CreatePage() {
                 {/* Bottom text */}
                 <div className="absolute bottom-16 left-0 right-0 flex justify-center z-10 px-8">
                   <div
-                    className={`text-white text-lg font-bold font-[var(--font-orbitron)] tracking-wide text-center transition-opacity duration-300 ${
+                    className={`text-white text-lg font-bold font-orbitron tracking-wide text-center transition-opacity duration-300 ${
                       bottomTextVisible ? "opacity-100" : "opacity-0"
                     }`}
                     style={{
