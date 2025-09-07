@@ -332,7 +332,7 @@ export class DataFetcher {
       // 1. Try Basescan API first for comprehensive transaction data
       try {
         console.log('Attempting to fetch transaction data from Basescan API...');
-        const basescanApiKey = process.env.BASESCAN_API_KEY;
+        const basescanApiKey = process.env.NEXT_PUBLIC_BASESCAN_API_KEY;
         if (!basescanApiKey) {
           console.warn('No Basescan API key found in environment variables');
           throw new Error('Basescan API key not configured');
@@ -400,7 +400,7 @@ export class DataFetcher {
       if (snapshot.onchain.tokenCount === undefined) {
         try {
           console.log('🔍 OnchainKit did not provide token data, trying Basescan API...');
-          const basescanApiKey = process.env.BASESCAN_API_KEY;
+          const basescanApiKey = process.env.NEXT_PUBLIC_BASESCAN_API_KEY;
           if (!basescanApiKey) {
             console.warn('No Basescan API key found for token data');
             throw new Error('Basescan API key not configured');
