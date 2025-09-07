@@ -600,10 +600,26 @@ export default function CreatePage() {
       const validatedImprovedSong = validateSongData(improvedSongData);
       
       // Update the song data with the improved version
+      console.log('AI-enhanced song received:', {
+        title: validatedImprovedSong.metadata.title,
+        bars: validatedImprovedSong.metadata.bars,
+        steps: validatedImprovedSong.metadata.steps,
+        trackNames: Object.keys(validatedImprovedSong.tracks),
+        kickPatternLength: validatedImprovedSong.tracks.kick?.pattern.length,
+        bassPatternLength: validatedImprovedSong.tracks.bass?.pattern.length
+      });
       setSongData(validatedImprovedSong);
       
       // Update audio engine with improved patterns
       if (audioEngineRef.current) {
+        console.log('Loading AI-enhanced track with', validatedImprovedSong.metadata.steps, 'steps');
+        
+        // Set sequence length for the new track
+        audioEngineRef.current.setSequenceLength(validatedImprovedSong.metadata.steps);
+        
+        // Unmute all tracks for full arrangement
+        audioEngineRef.current.unmuteAllTracks();
+        
         // Update all tracks with improved patterns
         if (validatedImprovedSong.tracks.kick) {
           audioEngineRef.current.setKickPattern(validatedImprovedSong.tracks.kick.pattern);

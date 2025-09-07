@@ -8,8 +8,8 @@ type BeatIntensityCallback = (intensity: number) => void;
 const BPM = 128;
 const KICK_NOTE = "C1";
 const NOTE_DURATION = "8n";
-const BEAT_PATTERN = Array.from({ length: 16 }, (_, i) => i); // All 16 steps
-const SUBDIVISION = "16n"; // 16th notes for 16 steps
+const DEFAULT_STEPS = 16;
+const SUBDIVISION = "16n"; // 16th notes for steps
 
 // Beat intensity decay timing (in milliseconds)
 const BEAT_INTENSITY_DECAY = [
@@ -39,6 +39,7 @@ export class SimpleAudioEngine {
   private snarePattern: number[] = [4, 12]; // Default snare pattern
   private bassPattern: number[] = [0, 2, 8, 10]; // Simple bass pattern
   private acidPattern: { step: number; note: string | null }[] = []; // Acid melody pattern with notes
+  private currentSteps: number = DEFAULT_STEPS; // Current number of steps in sequence
 
   async initialize(
     onStepChange?: StepChangeCallback,
@@ -129,9 +130,10 @@ export class SimpleAudioEngine {
   }
 
   private createSequence(): void {
+    const beatPattern = Array.from({ length: this.currentSteps }, (_, i) => i);
     this.sequence = new Tone.Sequence(
       this.handleSequenceStep.bind(this),
-      BEAT_PATTERN,
+      beatPattern,
       SUBDIVISION
     );
     this.sequence.loop = true;
@@ -187,7 +189,9 @@ export class SimpleAudioEngine {
   private scheduleStepUpdate(time: number, step: number): void {
     // Schedule step change callback for all steps
     Tone.Draw.schedule(() => {
-      this.onStepCallback?.(step);
+      // For longer sequences, show step position within the current 16-step bar
+      const displayStep = this.currentSteps > 16 ? step % 16 : step;
+      this.onStepCallback?.(displayStep);
     }, time);
   }
 
@@ -368,6 +372,41 @@ export class SimpleAudioEngine {
       this.acidVolume.volume.value = muted ? -Infinity : 0;
       console.log('Acid muted:', muted);
     }
+  }
+
+  // Unmute all tracks for full arrangement playback
+  unmuteAllTracks(): void {
+    console.log('Unmuting all tracks for full arrangement');
+    this.setKickMuted(false);
+    this.setSnareMuted(false);
+    this.setBassMuted(false);
+    this.setAcidMuted(false);
+  }
+
+  // Update sequence length and recreate sequence
+  setSequenceLength(steps: number): void {
+    this.currentSteps = steps;
+    
+    // Stop current sequence if playing
+    const wasPlaying = this.isPlaying;
+    if (wasPlaying) {
+      this.stop();
+    }
+    
+    // Dispose and recreate sequence
+    if (this.sequence) {
+      this.sequence.dispose();
+      this.sequence = null;
+    }
+    
+    this.createSequence();
+    
+    // Restart if it was playing
+    if (wasPlaying) {
+      this.start();
+    }
+    
+    console.log(`Updated sequence length to ${steps} steps`);
   }
 
   // Generate melody from wallet address
