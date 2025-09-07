@@ -358,7 +358,7 @@ export default function CreatePage() {
     if (isConnected && address && !userSnapshot && !isLoadingData) {
       fetchUserData();
     }
-  }, [isConnected, address, userSnapshot, isLoadingData, fetchUserData]);
+  }, [isConnected, address, userSnapshot, isLoadingData]);
 
   // Helper function to update song data safely with validation
   const updateSongData = useCallback((updater: (current: SongData) => SongData) => {
@@ -434,55 +434,12 @@ export default function CreatePage() {
     };
   }, []);
 
-  // Test function to make client-side API calls visible in network tab
-  const testNeynarAPI = async () => {
-    try {
-      console.log("Testing Neynar API from client...");
-      
-      // First, test our test endpoint
-      const testResponse = await fetch('/api/test-neynar?fid=12152');
-      const testData = await testResponse.json();
-      console.log("Test API response:", testData);
-      
-      // Also test the farcaster-data endpoint
-      if (context && typeof context === 'object') {
-        const ctx = context as Record<string, unknown>;
-        if (ctx.user && typeof ctx.user === 'object') {
-          const user = ctx.user as Record<string, unknown>;
-          if (typeof user.fid === 'number') {
-            console.log("Testing with user FID:", user.fid);
-            const farcasterResponse = await fetch(`/api/farcaster-data?fid=${user.fid}`);
-            const farcasterData = await farcasterResponse.json();
-            console.log("Farcaster API response:", farcasterData);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Test API call failed:", error);
-    }
-  };
-
   const fetchUserData = async () => {
     if (!address) return;
 
     setIsLoadingData(true);
     try {
       console.log("Fetching user data for personalized track generation...");
-      console.log("MiniKit context:", context);
-      console.log("Connected address:", address);
-      
-      // Debug the context structure
-      if (context && typeof context === 'object') {
-        const ctx = context as Record<string, unknown>;
-        console.log("Context keys:", Object.keys(ctx));
-        console.log("Context.user:", ctx.user);
-        if (ctx.user && typeof ctx.user === 'object') {
-          const user = ctx.user as Record<string, unknown>;
-          console.log("User keys:", Object.keys(user));
-          console.log("User FID:", user.fid);
-          console.log("User follower count:", user.followerCount);
-        }
-      }
 
       // Use the actual DataFetcher to get real user data
       const snapshot = await dataFetcher.fetchUserSnapshot(context, address);
