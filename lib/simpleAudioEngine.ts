@@ -22,12 +22,12 @@ const BEAT_INTENSITY_DECAY = [
 
 export class SimpleAudioEngine {
   private kick: Tone.MembraneSynth | null = null;
-  private clap: Tone.NoiseSynth | null = null;
+  private snare: Tone.NoiseSynth | null = null;
   private bass: Tone.Synth | null = null;
   private acid: Tone.Synth | null = null;
   private acidFilter: Tone.AutoFilter | null = null;
   private kickVolume: Tone.Volume | null = null;
-  private clapVolume: Tone.Volume | null = null;
+  private snareVolume: Tone.Volume | null = null;
   private bassVolume: Tone.Volume | null = null;
   private acidVolume: Tone.Volume | null = null;
   private sequence: Tone.Sequence | null = null;
@@ -36,7 +36,7 @@ export class SimpleAudioEngine {
   private onStepCallback?: StepChangeCallback;
   private onBeatIntensityCallback?: BeatIntensityCallback;
   private kickPattern: number[] = [0, 4, 8, 12]; // Default pattern
-  private clapPattern: number[] = [4, 12]; // Default clap pattern
+  private snarePattern: number[] = [4, 12]; // Default snare pattern
   private bassPattern: number[] = [0, 2, 8, 10]; // Simple bass pattern
   private acidPattern: { step: number; note: string | null }[] = []; // Acid melody pattern with notes
 
@@ -52,7 +52,7 @@ export class SimpleAudioEngine {
     await Tone.start();
     
     this.createKickDrum();
-    this.createClap();
+    this.createSnare();
     this.createBass();
     this.createAcid();
     this.setupTempo();
@@ -76,9 +76,9 @@ export class SimpleAudioEngine {
     }).connect(this.kickVolume);
   }
 
-  private createClap(): void {
-    this.clapVolume = new Tone.Volume(-Infinity).toDestination(); // Start muted
-    this.clap = new Tone.NoiseSynth({
+  private createSnare(): void {
+    this.snareVolume = new Tone.Volume(-Infinity).toDestination(); // Start muted
+    this.snare = new Tone.NoiseSynth({
       noise: { type: "pink" },
       envelope: {
         attack: 0.001,
@@ -86,7 +86,7 @@ export class SimpleAudioEngine {
         sustain: 0,
         release: 0.2
       }
-    }).connect(this.clapVolume);
+    }).connect(this.snareVolume);
   }
 
   private createBass(): void {
@@ -144,9 +144,9 @@ export class SimpleAudioEngine {
       // Only schedule beat intensity decay on kick hits
       this.scheduleKickUIUpdates(time);
     }
-    // Trigger clap based on dynamic pattern
-    if (this.clapPattern.includes(step)) {
-      this.triggerClap(time);
+    // Trigger snare based on dynamic pattern
+    if (this.snarePattern.includes(step)) {
+      this.triggerSnare(time);
     }
     // Trigger bass based on dynamic pattern
     if (this.bassPattern.includes(step)) {
@@ -165,8 +165,8 @@ export class SimpleAudioEngine {
     this.kick?.triggerAttackRelease(KICK_NOTE, NOTE_DURATION, time);
   }
 
-  private triggerClap(time: number): void {
-    this.clap?.triggerAttackRelease(NOTE_DURATION, time);
+  private triggerSnare(time: number): void {
+    this.snare?.triggerAttackRelease(NOTE_DURATION, time);
   }
 
   private triggerBass(time: number): void {
@@ -229,7 +229,7 @@ export class SimpleAudioEngine {
     this.stop();
     this.cleanupSequence();
     this.cleanupKick();
-    this.cleanupClap();
+    this.cleanupSnare();
     this.cleanupBass();
     this.cleanupAcid();
     this.reset();
@@ -253,14 +253,14 @@ export class SimpleAudioEngine {
     }
   }
 
-  private cleanupClap(): void {
-    if (this.clap) {
-      this.clap.dispose();
-      this.clap = null;
+  private cleanupSnare(): void {
+    if (this.snare) {
+      this.snare.dispose();
+      this.snare = null;
     }
-    if (this.clapVolume) {
-      this.clapVolume.dispose();
-      this.clapVolume = null;
+    if (this.snareVolume) {
+      this.snareVolume.dispose();
+      this.snareVolume = null;
     }
   }
 
@@ -315,13 +315,13 @@ export class SimpleAudioEngine {
     return this.kickPattern;
   }
 
-  setClapPattern(pattern: number[]): void {
-    this.clapPattern = pattern;
-    console.log('Updated clap pattern:', pattern);
+  setSnarePattern(pattern: number[]): void {
+    this.snarePattern = pattern;
+    console.log('Updated snare pattern:', pattern);
   }
 
-  getClapPattern(): number[] {
-    return this.clapPattern;
+  getSnarePattern(): number[] {
+    return this.snarePattern;
   }
 
   setKickMuted(muted: boolean): void {
@@ -331,10 +331,10 @@ export class SimpleAudioEngine {
     }
   }
 
-  setClapMuted(muted: boolean): void {
-    if (this.clapVolume) {
-      this.clapVolume.volume.value = muted ? -Infinity : 0;
-      console.log('Clap muted:', muted);
+  setSnareMuted(muted: boolean): void {
+    if (this.snareVolume) {
+      this.snareVolume.volume.value = muted ? -Infinity : 0;
+      console.log('Snare muted:', muted);
     }
   }
 

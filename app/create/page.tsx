@@ -85,13 +85,13 @@ function PulsatingSquare({
 function DrumSequencer({
   currentStep,
   songData,
-  showClapTrack,
+  showSnareTrack,
   showBassTrack,
   showAcidTrack,
 }: {
   currentStep: number;
   songData: SongData;
-  showClapTrack?: boolean;
+  showSnareTrack?: boolean;
   showBassTrack?: boolean;
   showAcidTrack?: boolean;
 }) {
@@ -99,17 +99,18 @@ function DrumSequencer({
   
   // Extract patterns from songData
   const kickPattern = songData.tracks.kick?.pattern || [];
-  const clapPattern = songData.tracks.clap?.pattern || [];
+  const snarePattern = songData.tracks.snare?.pattern || [];
   const bassPattern = songData.tracks.bass?.pattern || [];
   const acidPattern = songData.tracks.acid?.pattern || [];
   const acidNotes = songData.tracks.acid?.notes || [];
 
   return (
-    <div className="flex flex-col items-center justify-center w-full px-4 gap-2">
-      {/* Kick track */}
+    <div className="w-full px-10">
+      <div className="flex flex-col items-center justify-center w-full gap-2">
+        {/* Kick track */}
       <div
-        className="flex gap-1 w-full max-w-full"
-        style={{ gap: "min(0.5rem, calc((100vw - 2rem) / 32))" }}
+        className="flex gap-1 justify-center"
+        style={{ gap: "min(0.5rem, calc((100vw - 160px) / 32))" }}
       >
         {steps.map((step) => {
           const hasKick = kickPattern.includes(step);
@@ -135,21 +136,21 @@ function DrumSequencer({
         })}
       </div>
 
-      {/* Clap track */}
-      {showClapTrack && clapPattern && (
+      {/* Snare track */}
+      {showSnareTrack && snarePattern && (
         <div
-          className="flex gap-1 w-full max-w-full"
-          style={{ gap: "min(0.5rem, calc((100vw - 2rem) / 32))" }}
+          className="flex gap-1 justify-center"
+          style={{ gap: "min(0.5rem, calc((100vw - 160px) / 32))" }}
         >
           {steps.map((step) => {
-            const hasClap = clapPattern.includes(step);
+            const hasSnare = snarePattern.includes(step);
             const isCurrentStep = step === currentStep % 16;
 
             return (
               <div
                 key={step}
                 className={`rounded-[5%] cursor-pointer transition-all opacity-0 animate-fade-in ${
-                  hasClap
+                  hasSnare
                     ? "hover:brightness-110"
                     : "hover:bg-opacity-30"
                 } ${isCurrentStep ? "ring-2 ring-white" : ""}`}
@@ -159,7 +160,7 @@ function DrumSequencer({
                   width: "min(2rem, calc((100vw - 2rem) / 20))",
                   height: "min(2rem, calc((100vw - 2rem) / 20))",
                   flexShrink: 0,
-                  backgroundColor: hasClap ? "#ffd12f" : "rgba(255, 209, 47, 0.2)",
+                  backgroundColor: hasSnare ? "#ffd12f" : "rgba(255, 209, 47, 0.2)",
                 }}
               />
             );
@@ -170,8 +171,8 @@ function DrumSequencer({
       {/* Bass track */}
       {showBassTrack && bassPattern && (
         <div
-          className="flex gap-1 w-full max-w-full"
-          style={{ gap: "min(0.5rem, calc((100vw - 2rem) / 32))" }}
+          className="flex gap-1 justify-center"
+          style={{ gap: "min(0.5rem, calc((100vw - 160px) / 32))" }}
         >
           {steps.map((step) => {
             const hasBass = bassPattern.includes(step);
@@ -202,8 +203,8 @@ function DrumSequencer({
       {/* Acid track */}
       {showAcidTrack && acidPattern && (
         <div
-          className="flex gap-1 w-full max-w-full"
-          style={{ gap: "min(0.5rem, calc((100vw - 2rem) / 32))" }}
+          className="flex gap-1 justify-center"
+          style={{ gap: "min(0.5rem, calc((100vw - 160px) / 32))" }}
         >
           {steps.map((step) => {
             const hasAcid = acidPattern.includes(step) && acidNotes[step];
@@ -230,6 +231,7 @@ function DrumSequencer({
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -292,34 +294,37 @@ export default function CreatePage() {
           muted: false,
           volume: -6
         },
-        clap: {
-          pattern: [4, 12], // Basic clap on beats 2 and 4
+        snare: {
+          pattern: [4, 12], // Basic snare on beats 2 and 4
           muted: true, // Start muted
           volume: -8
         },
         bass: {
           pattern: [0, 2, 8, 10], // Simple bass pattern
           muted: true, // Start muted
-          volume: -10
+          volume: -6
         },
         acid: {
           pattern: [],
           notes: [],
           muted: true, // Start muted
-          volume: -12
+          volume: -16
         }
       }
     };
   });
   
   // UI progression state
-  const [showClapTrack, setShowClapTrack] = useState(false);
+  const [showSnareTrack, setShowSnareTrack] = useState(false);
   const [showBassTrack, setShowBassTrack] = useState(false);
   const [showAcidTrack, setShowAcidTrack] = useState(false);
   const [showNextButton, setShowNextButton] = useState(false);
   
   // Progression state - tracks which stage we're at
-  const [progressionStage, setProgressionStage] = useState<'kick-educational' | 'kick-personal' | 'clap-educational' | 'clap-personal' | 'bass-educational' | 'bass-personal' | 'acid-educational' | 'acid-personal' | 'complete'>('kick-educational');
+  const [progressionStage, setProgressionStage] = useState<'kick-educational' | 'kick-personal' | 'snare-educational' | 'snare-personal' | 'bass-educational' | 'bass-personal' | 'acid-educational' | 'acid-personal' | 'ai-ready' | 'ai-processing' | 'complete'>('kick-educational');
+  
+  // AI processing state
+  const [isAIProcessing, setIsAIProcessing] = useState(false);
 
   // Export song data function (for demonstration)
   const exportSongData = useCallback(() => {
@@ -390,10 +395,10 @@ export default function CreatePage() {
     [],
   );
 
-  const generateClapPattern = useCallback(
+  const generateSnarePattern = useCallback(
     (followerCount: number): number[] => {
       if (followerCount === 0) {
-        return [4, 12]; // Standard clap on beats 2 and 4
+        return [4, 12]; // Standard snare on beats 2 and 4
       } else if (followerCount <= 50) {
         return [4, 12, 14]; // Add anticipation
       } else if (followerCount <= 200) {
@@ -547,19 +552,19 @@ export default function CreatePage() {
     }
   }, [userSnapshot]);
 
-  const getPersonalClapMessage = useCallback((): string => {
+  const getPersonalSnareMessage = useCallback((): string => {
     if (!userSnapshot) {
-      return "You're keeping the standard clap on beats 2 and 4";
+      return "You're keeping the standard snare on beats 2 and 4";
     }
     const followerCount = userSnapshot.farcaster.followerCount || 0;
     if (followerCount === 0) {
-      return "Because you have no followers yet, you're keeping the standard clap on beats 2 and 4";
+      return "Because you have no followers yet, you're keeping the standard snare on beats 2 and 4";
     } else if (followerCount <= 50) {
-      return `Because you have ${followerCount} followers, you get an anticipation clap pattern!`;
+      return `Because you have ${followerCount} followers, you get an anticipation snare pattern!`;
     } else if (followerCount <= 200) {
-      return `Because you have ${followerCount} followers, you get syncopated clap patterns!`;
+      return `Because you have ${followerCount} followers, you get syncopated snare patterns!`;
     } else {
-      return `Because you have ${followerCount} followers, you get complex influencer-level rhythm claps!`;
+      return `Because you have ${followerCount} followers, you get complex influencer-level rhythm snares!`;
     }
   }, [userSnapshot]);
 
@@ -587,6 +592,85 @@ export default function CreatePage() {
     const hexSection = address.slice(2, 18); // First 16 hex chars after 0x
     return `Because your wallet address is ${shortAddress}, you get a completely unique acid melody! Each hex character (${hexSection}) maps to notes in a minor scale, with D/E/F creating musical rests.`;
   }, [address]);
+
+  const sendToAIProducer = useCallback(async () => {
+    try {
+      setIsAIProcessing(true);
+      setProgressionStage('ai-processing');
+      setSequencerTextVisible(false);
+      setTimeout(() => {
+        setSequencerText("AI producer is enhancing your track...");
+        setSequencerTextVisible(true);
+      }, 300);
+
+      const response = await fetch('/api/improve-song', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(songData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to improve song');
+      }
+
+      const improvedSongData = await response.json();
+      
+      // Validate the improved song data
+      const validatedImprovedSong = validateSongData(improvedSongData);
+      
+      // Update the song data with the improved version
+      setSongData(validatedImprovedSong);
+      
+      // Update audio engine with improved patterns
+      if (audioEngineRef.current) {
+        // Update all tracks with improved patterns
+        if (validatedImprovedSong.tracks.kick) {
+          audioEngineRef.current.setKickPattern(validatedImprovedSong.tracks.kick.pattern);
+        }
+        if (validatedImprovedSong.tracks.snare) {
+          audioEngineRef.current.setSnarePattern(validatedImprovedSong.tracks.snare.pattern);
+        }
+        if (validatedImprovedSong.tracks.bass) {
+          audioEngineRef.current.setBassPattern(validatedImprovedSong.tracks.bass.pattern);
+        }
+        if (validatedImprovedSong.tracks.acid) {
+          // Convert pattern + notes back to melody format for audio engine
+          const melodyData = validatedImprovedSong.tracks.acid.pattern.map(step => ({
+            step,
+            note: validatedImprovedSong.tracks.acid.notes?.[step] || null
+          }));
+          audioEngineRef.current.setAcidPattern(melodyData);
+        }
+      }
+
+      // Show completion message
+      setIsAIProcessing(false);
+      setProgressionStage('complete');
+      setSequencerTextVisible(false);
+      setTimeout(() => {
+        setSequencerText("🎵 Your personalized techno track has been enhanced by AI! 🎵");
+        setSequencerTextVisible(true);
+        
+        // Export final song data
+        setTimeout(() => {
+          exportSongData();
+        }, 2000);
+      }, 300);
+
+    } catch (error) {
+      console.error('Failed to improve song:', error);
+      setIsAIProcessing(false);
+      setProgressionStage('complete');
+      setSequencerTextVisible(false);
+      setTimeout(() => {
+        setSequencerText("Something went wrong with the AI producer. Playing your original track.");
+        setSequencerTextVisible(true);
+        exportSongData();
+      }, 300);
+    }
+  }, [songData, validateSongData, exportSongData]);
 
   const handleNextClick = useCallback(() => {
     console.log('Next button clicked, current stage:', progressionStage);
@@ -627,77 +711,77 @@ export default function CreatePage() {
             }, 500); // 500ms after personal text appears for dramatic effect
           }
           
-          // Show Next button for clap progression
+          // Show Next button for snare progression
           setTimeout(() => {
             setShowNextButton(true);
-            setProgressionStage('clap-educational');
+            setProgressionStage('snare-educational');
           }, 2000);
         }, 300);
       }, 300);
-    } else if (progressionStage === 'clap-educational') {
-      // Start clap track progression
-      setProgressionStage('clap-personal');
+    } else if (progressionStage === 'snare-educational') {
+      // Start snare track progression
+      setProgressionStage('snare-personal');
       setTimeout(() => {
-        // 1. Change title and start with basic clap pattern
-        setShowClapTrack(true);
-        const basicClapPattern = [4, 12]; // Basic clap on beats 2 and 4
+        // 1. Change title and start with basic snare pattern
+        setShowSnareTrack(true);
+        const basicSnarePattern = [4, 12]; // Basic snare on beats 2 and 4
         updateSongData(current => ({
           ...current,
           tracks: {
             ...current.tracks,
-            clap: {
-              ...current.tracks.clap,
-              pattern: basicClapPattern,
-              muted: false // Unmute the clap track now that we're introducing it
+            snare: {
+              ...current.tracks.snare,
+              pattern: basicSnarePattern,
+              muted: false // Unmute the snare track now that we're introducing it
             }
           }
         }));
-        audioEngineRef.current?.setClapPattern(basicClapPattern);
-        audioEngineRef.current?.setClapMuted(false);
+        audioEngineRef.current?.setSnarePattern(basicSnarePattern);
+        audioEngineRef.current?.setSnareMuted(false);
         
         // 2. Show educational text
         setTimeout(() => {
           setSequencerTextVisible(false);
           setTimeout(() => {
-            setSequencerText("The clap adds rhythm and drive to your track");
+            setSequencerText("The snare adds rhythm and drive to your track");
             setSequencerTextVisible(true);
             
-            // Show Next button for clap personalization
+            // Show Next button for snare personalization
             setTimeout(() => {
               setShowNextButton(true);
             }, 2000);
           }, 300);
         }, 500);
       }, 300);
-    } else if (progressionStage === 'clap-personal') {
-      // Show personal clap message and upgrade pattern
+    } else if (progressionStage === 'snare-personal') {
+      // Show personal snare message and upgrade pattern
       setProgressionStage('bass-educational');
       setTimeout(() => {
         setSequencerTextVisible(false);
         setTimeout(() => {
-          const personalClapText = getPersonalClapMessage();
-          setSequencerText(personalClapText);
+          const personalSnareText = getPersonalSnareMessage();
+          setSequencerText(personalSnareText);
           setSequencerTextVisible(true);
           
-          // Upgrade clap pattern based on user data - but only if earned
-          const basicClapPattern = [4, 12]; // Basic clap
+          // Upgrade snare pattern based on user data - but only if earned
+          const basicSnarePattern = [4, 12]; // Basic snare
           const userFollowerCount = userSnapshot?.farcaster.followerCount || 0;
-          const personalizedClapPattern = generateClapPattern(userFollowerCount);
+          const personalizedSnarePattern = generateSnarePattern(userFollowerCount);
           
           // Only upgrade if it's different from basic
-          if (JSON.stringify(personalizedClapPattern) !== JSON.stringify(basicClapPattern)) {
+          if (JSON.stringify(personalizedSnarePattern) !== JSON.stringify(basicSnarePattern)) {
             setTimeout(() => {
               updateSongData(current => ({
                 ...current,
                 tracks: {
                   ...current.tracks,
-                  clap: {
-                    ...current.tracks.clap,
-                    pattern: personalizedClapPattern
+                  snare: {
+                    ...current.tracks.snare,
+                    pattern: personalizedSnarePattern
                   }
                 }
               }));
-              audioEngineRef.current?.setClapPattern(personalizedClapPattern);
+              audioEngineRef.current?.setSnarePattern(personalizedSnarePattern);
             }, 500);
           }
           
@@ -836,8 +920,8 @@ export default function CreatePage() {
         }, 500);
       }, 300);
     } else if (progressionStage === 'acid-personal') {
-      // Show personal acid message
-      setProgressionStage('complete');
+      // Show personal acid message, then transition to AI ready stage
+      setProgressionStage('ai-ready');
       setTimeout(() => {
         setSequencerTextVisible(false);
         setTimeout(() => {
@@ -845,14 +929,26 @@ export default function CreatePage() {
           setSequencerText(personalAcidText);
           setSequencerTextVisible(true);
           
-          // Export the final song data for demonstration
+          // After showing personal message, show AI producer message
           setTimeout(() => {
-            exportSongData();
-          }, 2000);
+            setSequencerTextVisible(false);
+            setTimeout(() => {
+              setSequencerText("Ok we've got the basics down. Let's send this to our AI producer");
+              setSequencerTextVisible(true);
+              
+              // Show Next button for AI producer step
+              setTimeout(() => {
+                setShowNextButton(true);
+              }, 1000);
+            }, 300);
+          }, 3000);
         }, 300);
       }, 300);
+    } else if (progressionStage === 'ai-ready') {
+      // User clicked Next to send to AI producer
+      sendToAIProducer();
     }
-  }, [progressionStage, generateKickPattern, getPersonalKickMessage, generateClapPattern, getPersonalClapMessage, generateBassPattern, getPersonalBassMessage, getPersonalAcidMessage, userSnapshot, address, exportSongData]);
+  }, [progressionStage, generateKickPattern, getPersonalKickMessage, generateSnarePattern, getPersonalSnareMessage, generateBassPattern, getPersonalBassMessage, getPersonalAcidMessage, userSnapshot, address, exportSongData, sendToAIProducer]);
 
   const animateSquareTransition = useCallback(() => {
     console.log("Animation triggered - simple transition");
@@ -1062,9 +1158,9 @@ export default function CreatePage() {
                 {/* Title */}
                 <div className="absolute top-24 left-0 right-0 flex justify-center z-20">
                   <h1 className={`text-3xl font-bold font-[var(--font-orbitron)] tracking-wide ${
-                    showAcidTrack ? 'text-[#fea8cd]' : showBassTrack ? 'text-[#b6f569]' : showClapTrack ? 'text-[#ffd12f]' : 'text-blue-600'
+                    showAcidTrack ? 'text-[#fea8cd]' : showBassTrack ? 'text-[#b6f569]' : showSnareTrack ? 'text-[#ffd12f]' : 'text-blue-600'
                   }`}>
-                    {showAcidTrack ? 'Your wallet\'s melody' : showBassTrack ? 'Finally, let\'s add bass' : showClapTrack ? 'Now let\'s add a clap' : 'It starts with a kick'}
+                    {showAcidTrack ? 'Your wallet\'s melody' : showBassTrack ? 'Finally, let\'s add bass' : showSnareTrack ? 'Now let\'s add a snare' : 'It starts with a kick'}
                   </h1>
                 </div>
 
@@ -1094,14 +1190,14 @@ export default function CreatePage() {
                     <DrumSequencer
                       currentStep={currentStep}
                       songData={songData}
-                      showClapTrack={showClapTrack}
+                      showSnareTrack={showSnareTrack}
                       showBassTrack={showBassTrack}
                       showAcidTrack={showAcidTrack}
                     />
                   )}
 
                   {/* Next Button */}
-                  {showNextButton && progressionStage !== 'complete' && (
+                  {showNextButton && progressionStage !== 'complete' && progressionStage !== 'ai-processing' && (
                     <div className="absolute bottom-0 left-0 right-0 z-10">
                       <button
                         onClick={handleNextClick}
@@ -1110,8 +1206,21 @@ export default function CreatePage() {
                           boxShadow: "0 0 20px rgba(59, 130, 246, 0.3)",
                         }}
                       >
-                        {progressionStage === 'kick-educational' || progressionStage === 'clap-educational' || progressionStage === 'bass-educational' || progressionStage === 'acid-educational' ? 'Customize' : 'Next'}
+                        {progressionStage === 'ai-ready' ? 'Send to AI Producer' : 'Next'}
                       </button>
+                    </div>
+                  )}
+
+                  {/* AI Processing Spinner */}
+                  {isAIProcessing && (
+                    <div className="absolute bottom-0 left-0 right-0 z-10">
+                      <div className="w-full bg-blue-600 text-white font-bold py-4 font-[var(--font-orbitron)] text-lg tracking-wide shadow-lg flex items-center justify-center"
+                           style={{
+                             boxShadow: "0 0 20px rgba(59, 130, 246, 0.3)",
+                           }}>
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3"></div>
+                        Processing...
+                      </div>
                     </div>
                   )}
                 </div>
