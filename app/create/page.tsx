@@ -39,7 +39,7 @@ type FlashText = typeof FLASH_TEXTS[number] | null;
 interface PulsatingSquareProps {
   style: SquareStyle;
   onClick: () => void;
-  flashText: FlashText;
+  flashText: FlashText | "start";
 }
 
 // Extracted PulsatingSquare component
@@ -78,7 +78,9 @@ export default function CreatePage() {
   // UI state
   const [currentStep, setCurrentStep] = useState(0);
   const [beatIntensity, setBeatIntensity] = useState(0);
-  const [showFlashText, setShowFlashText] = useState<FlashText>(null);
+  const [showFlashText, setShowFlashText] = useState<FlashText | "start">(null);
+  const [bottomText, setBottomText] = useState("");
+  const [bottomTextVisible, setBottomTextVisible] = useState(false);
 
   // Cleanup audio engine on unmount
   useEffect(() => {
@@ -92,10 +94,28 @@ export default function CreatePage() {
     beatCountRef.current += 1;
     
     const beatCount = beatCountRef.current;
+    
+    // Flash "base" and "drum" on first two beats
     if (beatCount <= FLASH_TEXTS.length) {
       const flashText = FLASH_TEXTS[beatCount - 1];
       setShowFlashText(flashText);
       setTimeout(() => setShowFlashText(null), FLASH_TEXT_DURATION);
+    }
+    
+    // Show bottom text sequence
+    if (beatCount === 5) {
+      setBottomText("Every account has a beat");
+      setBottomTextVisible(true);
+    } else if (beatCount === 9) {
+      setBottomTextVisible(false);
+      setTimeout(() => {
+        setBottomText("Let's create yours");
+        setBottomTextVisible(true);
+      }, 300);
+    } else if (beatCount === 13) {
+      setBottomTextVisible(false);
+      setShowFlashText("start");
+      setTimeout(() => setShowFlashText(null), FLASH_TEXT_DURATION * 4); // Show "start" for longer
     }
   }, []);
 
@@ -177,13 +197,26 @@ export default function CreatePage() {
             </ConnectWallet>
           </Wallet>
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center z-20">
-            <PulsatingSquare
-              style={getSquareStyle()}
-              onClick={handleSquareClick}
-              flashText={showFlashText}
-            />
-          </div>
+          <>
+            <div className="absolute inset-0 flex items-center justify-center z-20">
+              <PulsatingSquare
+                style={getSquareStyle()}
+                onClick={handleSquareClick}
+                flashText={showFlashText}
+              />
+            </div>
+            
+            {/* Bottom text */}
+            <div className="absolute bottom-16 left-0 right-0 flex justify-center z-10">
+              <div 
+                className={`text-white text-sm font-medium transition-opacity duration-300 ${
+                  bottomTextVisible ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                {bottomText}
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>
