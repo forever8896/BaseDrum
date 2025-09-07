@@ -24,6 +24,7 @@ interface MuteStates {
   ride: boolean;
   clap: boolean;
   acid: boolean;
+  pulse: boolean;
 }
 
 interface SynthCollection {
@@ -37,6 +38,7 @@ interface SynthCollection {
   ride?: Tone.NoiseSynth;
   clap?: Tone.NoiseSynth;
   acid?: Tone.MonoSynth;
+  pulse?: Tone.MembraneSynth;
   hihat909Env?: Tone.AmplitudeEnvelope;
   hihat909Osc1?: Tone.Oscillator;
   hihat909Osc2?: Tone.Oscillator;
@@ -298,6 +300,44 @@ export class BaseDrumAudioEngine {
       },
     }).connect(this.filter);
 
+    // PULSE - Kick-hihat hybrid (down-up-down-up foundation) - SOPHISTICATED VERSION
+    const pulse = new Tone.MembraneSynth({
+      pitchDecay: 0.02,
+      octaves: 6,
+      oscillator: { type: "sawtooth" },
+      envelope: { 
+        attack: 0.001, 
+        decay: 0.08, 
+        sustain: 0.05, 
+        release: 0.12 
+      },
+    });
+
+    // Multi-band processing for kick-hihat hybrid character
+    const pulseLowFilter = new Tone.Filter({
+      frequency: 120,
+      type: "lowpass",
+      Q: 2,
+    });
+
+    const pulseHighFilter = new Tone.Filter({
+      frequency: 3000,
+      type: "highpass",
+      Q: 1,
+    });
+
+    const pulseLowGain = new Tone.Gain(0.7);
+    const pulseHighGain = new Tone.Gain(0.4);
+    const pulseMixer = new Tone.Gain();
+
+    pulse.connect(pulseLowFilter);
+    pulse.connect(pulseHighFilter);
+    pulseLowFilter.connect(pulseLowGain);
+    pulseHighFilter.connect(pulseHighGain);
+    pulseLowGain.connect(pulseMixer);
+    pulseHighGain.connect(pulseMixer);
+    pulseMixer.connect(this.filter);
+
     // Start continuous oscillators
     rumble.start();
 
@@ -313,6 +353,7 @@ export class BaseDrumAudioEngine {
       ride,
       clap,
       acid,
+      pulse,
       hihat909Env,
       hihat909Osc1,
       hihat909Osc2,
@@ -324,8 +365,24 @@ export class BaseDrumAudioEngine {
   private createSequence(): void {
     if (!this.synths || !this.songDataRef || !this.muteStatesRef) return;
 
-    // Create the sequence callback
-    const sequenceCallback = (time: number, step: number) => {
+    // Import the sophisticated sequence callback from the music player
+    const { createSequenceCallback } = require('./sequenceCallback');
+    const sequenceCallback = createSequenceCallback(
+      { current: this.synths },
+      this.muteStatesRef,
+      this.songDataRef,
+      (step: number) => {
+        this.state.currentStep = step;
+        this.callbacks.onStepChange(step);
+      },
+      (intensity: number) => {
+        this.state.beatIntensity = intensity;
+        this.callbacks.onBeatIntensity(intensity);
+      }
+    );
+
+    // Original simple sequence callback (keeping as fallback)
+    const originalSequenceCallback = (time: number, step: number) => {
       // Update step counter for visualization
       Tone.Draw.schedule(() => {
         this.state.currentStep = step;
@@ -438,6 +495,16 @@ export class BaseDrumAudioEngine {
         }
       }
 
+      // PULSE - Foundation rhythm (kick-hihat hybrid)
+      if (!this.muteStatesRef!.current.pulse && currentSong.tracks.pulse && currentSong.tracks.pulse.volume > -50) {
+        const track = currentSong.tracks.pulse;
+        if (track.pattern.includes(step)) {
+          const velocity = track.velocity?.[step] || 0.7;
+          this.synths.pulse?.triggerAttackRelease("C2", "8n", time, velocity);
+          beatHit = true;
+        }
+      }
+
       // Update beat intensity for particle effects
       if (beatHit) {
         Tone.Draw.schedule(() => {
@@ -464,9 +531,11 @@ export class BaseDrumAudioEngine {
       }
     };
 
+    // Use the song's actual length instead of hardcoded 128
+    const songLength = this.songDataRef!.current.metadata.steps || 128;
     this.sequence = new Tone.Sequence(
       sequenceCallback,
-      Array.from({ length: 128 }, (_, i) => i),
+      Array.from({ length: songLength }, (_, i) => i),
       "16n"
     );
 
@@ -527,6 +596,18 @@ export class BaseDrumAudioEngine {
 
   public setBPM(bpm: number): void {
     Tone.Transport.bpm.value = bpm;
+  }
+
+  public updateSequenceLength(): void {
+    if (!this.songDataRef || !this.synths) return;
+    
+    // Dispose old sequence
+    if (this.sequence) {
+      this.sequence.dispose();
+    }
+    
+    // Create new sequence with updated song length
+    this.createSequence();
   }
 
   public getState(): AudioEngineState {
