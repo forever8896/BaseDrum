@@ -18,7 +18,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { SimpleAudioEngine } from "@/lib/simpleAudioEngine";
 import { DataFetcher, UserDataSnapshot } from "@/lib/data-fetcher";
-import { TrackData } from "@/lib/songSchema-new";
+import { SongData, validateSongData } from "@/lib/songSchema-new";
 
 // Animation and styling constants
 const FLASH_TEXT_DURATION = 150;
@@ -84,24 +84,25 @@ function PulsatingSquare({
 // Drum sequencer component
 function DrumSequencer({
   currentStep,
-  kickPattern,
-  clapPattern,
-  bassPattern,
-  acidPattern,
+  songData,
   showClapTrack,
   showBassTrack,
   showAcidTrack,
 }: {
   currentStep: number;
-  kickPattern: number[];
-  clapPattern?: number[];
-  bassPattern?: number[];
-  acidPattern?: { step: number; note: string | null }[];
+  songData: SongData;
   showClapTrack?: boolean;
   showBassTrack?: boolean;
   showAcidTrack?: boolean;
 }) {
   const steps = Array.from({ length: 16 }, (_, i) => i);
+  
+  // Extract patterns from songData
+  const kickPattern = songData.tracks.kick?.pattern || [];
+  const clapPattern = songData.tracks.clap?.pattern || [];
+  const bassPattern = songData.tracks.bass?.pattern || [];
+  const acidPattern = songData.tracks.acid?.pattern || [];
+  const acidNotes = songData.tracks.acid?.notes || [];
 
   return (
     <div className="flex flex-col items-center justify-center w-full px-4 gap-2">
@@ -205,8 +206,7 @@ function DrumSequencer({
           style={{ gap: "min(0.5rem, calc((100vw - 2rem) / 32))" }}
         >
           {steps.map((step) => {
-            const acidNote = acidPattern.find(p => p.step === step);
-            const hasAcid = !!acidNote?.note;
+            const hasAcid = acidPattern.includes(step) && acidNotes[step];
             const isCurrentStep = step === currentStep % 16;
 
             return (
@@ -258,23 +258,88 @@ export default function CreatePage() {
     null,
   );
   const [isLoadingData, setIsLoadingData] = useState(false);
-  const [kickPattern, setKickPattern] = useState<number[]>([0, 4, 8, 12]); // Default pattern
   
-  // Clap track state
+  // Unified song data in schema format
+  const [songData, setSongData] = useState<SongData>(() => {
+    // Initialize with default song structure
+    return {
+      metadata: {
+        title: "Your Onchain Beat",
+        artist: "BaseDrum",
+        version: "1.0.0",
+        created: new Date().toISOString(),
+        bpm: 128,
+        bars: 1,
+        steps: 16,
+        format: "basedrum-v1"
+      },
+      effects: {
+        filter: {
+          cutoff: 0.8,
+          type: "lowpass",
+          startFreq: 800,
+          endFreq: 800
+        },
+        reverb: {
+          wet: 0.3,
+          roomSize: 0.7,
+          decay: 2.0
+        }
+      },
+      tracks: {
+        kick: {
+          pattern: [0, 4, 8, 12], // Default 4/4 pattern
+          muted: false,
+          volume: -6
+        },
+        clap: {
+          pattern: [4, 12], // Basic clap on beats 2 and 4
+          muted: true, // Start muted
+          volume: -8
+        },
+        bass: {
+          pattern: [0, 2, 8, 10], // Simple bass pattern
+          muted: true, // Start muted
+          volume: -10
+        },
+        acid: {
+          pattern: [],
+          notes: [],
+          muted: true, // Start muted
+          volume: -12
+        }
+      }
+    };
+  });
+  
+  // UI progression state
   const [showClapTrack, setShowClapTrack] = useState(false);
-  const [clapPattern, setClapPattern] = useState<number[]>([4, 12]); // Basic clap on beats 2 and 4
-  
-  // Bass track state
   const [showBassTrack, setShowBassTrack] = useState(false);
-  const [bassPattern, setBassPattern] = useState<number[]>([0, 2, 8, 10]); // Simple bass pattern
-  
-  // Acid track state
   const [showAcidTrack, setShowAcidTrack] = useState(false);
-  const [acidPattern, setAcidPattern] = useState<{ step: number; note: string | null }[]>([]); // Acid melody pattern
   const [showNextButton, setShowNextButton] = useState(false);
   
   // Progression state - tracks which stage we're at
   const [progressionStage, setProgressionStage] = useState<'kick-educational' | 'kick-personal' | 'clap-educational' | 'clap-personal' | 'bass-educational' | 'bass-personal' | 'acid-educational' | 'acid-personal' | 'complete'>('kick-educational');
+
+  // Export song data function (for demonstration)
+  const exportSongData = useCallback(() => {
+    try {
+      const exportData = {
+        ...songData,
+        metadata: {
+          ...songData.metadata,
+          title: `${songData.metadata.title} - ${new Date().toLocaleTimeString()}`
+        }
+      };
+      const validated = validateSongData(exportData);
+      const jsonString = JSON.stringify(validated, null, 2);
+      console.log('📁 Exportable Song Data (basedrum-v1 format):', jsonString);
+      return jsonString;
+    } catch (error) {
+      console.error('❌ Export validation failed:', error);
+      return null;
+    }
+  }, [songData]);
 
   // Cleanup audio engine on unmount
   useEffect(() => {
@@ -289,6 +354,26 @@ export default function CreatePage() {
       fetchUserData();
     }
   }, [isConnected, address, userSnapshot, isLoadingData]);
+
+  // Helper function to update song data safely with validation
+  const updateSongData = useCallback((updater: (current: SongData) => SongData) => {
+    setSongData(current => {
+      try {
+        const updated = updater(current);
+        // Validate the updated song data
+        const validated = validateSongData(updated);
+        console.log('✅ Song data validated successfully:', {
+          title: validated.metadata.title,
+          tracks: Object.keys(validated.tracks),
+          totalSteps: Object.values(validated.tracks).reduce((sum, track) => sum + track.pattern.length, 0)
+        });
+        return validated;
+      } catch (error) {
+        console.error('❌ Song data validation failed:', error);
+        return current; // Return current data if validation fails
+      }
+    });
+  }, []);
 
   const generateKickPattern = useCallback(
     (transactionCount: number): number[] => {
@@ -398,10 +483,18 @@ export default function CreatePage() {
       // Generate kick pattern based on transaction count
       const txCount = snapshot.onchain.transactionCount || 0;
       const generatedPattern = generateKickPattern(txCount);
-      setKickPattern(generatedPattern);
-
-      // Create track data structure (for future use if needed)
-      createKickTrackData(generatedPattern);
+      
+      // Update song data with new kick pattern
+      updateSongData(current => ({
+        ...current,
+        tracks: {
+          ...current.tracks,
+          kick: {
+            ...current.tracks.kick,
+            pattern: generatedPattern
+          }
+        }
+      }));
 
       console.log(
         `Generated kick pattern for ${txCount} transactions:`,
@@ -416,8 +509,16 @@ export default function CreatePage() {
       console.error("Failed to fetch user data:", error);
       // Use default pattern on error
       const defaultPattern = [0, 4, 8, 12];
-      setKickPattern(defaultPattern);
-      createKickTrackData(defaultPattern);
+      updateSongData(current => ({
+        ...current,
+        tracks: {
+          ...current.tracks,
+          kick: {
+            ...current.tracks.kick,
+            pattern: defaultPattern
+          }
+        }
+      }));
 
       // Update audio engine with default pattern if initialized
       if (audioEngineRef.current) {
@@ -509,7 +610,16 @@ export default function CreatePage() {
           // Only upgrade if it's different from basic
           if (JSON.stringify(personalizedPattern) !== JSON.stringify(basicPattern)) {
             setTimeout(() => {
-              setKickPattern(personalizedPattern);
+              updateSongData(current => ({
+                ...current,
+                tracks: {
+                  ...current.tracks,
+                  kick: {
+                    ...current.tracks.kick,
+                    pattern: personalizedPattern
+                  }
+                }
+              }));
               if (audioEngineRef.current) {
                 audioEngineRef.current.setKickPattern(personalizedPattern);
               }
@@ -531,9 +641,18 @@ export default function CreatePage() {
         // 1. Change title and start with basic clap pattern
         setShowClapTrack(true);
         const basicClapPattern = [4, 12]; // Basic clap on beats 2 and 4
-        setClapPattern(basicClapPattern);
+        updateSongData(current => ({
+          ...current,
+          tracks: {
+            ...current.tracks,
+            clap: {
+              ...current.tracks.clap,
+              pattern: basicClapPattern,
+              muted: false // Unmute the clap track now that we're introducing it
+            }
+          }
+        }));
         audioEngineRef.current?.setClapPattern(basicClapPattern);
-        // Unmute the clap track now that we're introducing it
         audioEngineRef.current?.setClapMuted(false);
         
         // 2. Show educational text
@@ -568,7 +687,16 @@ export default function CreatePage() {
           // Only upgrade if it's different from basic
           if (JSON.stringify(personalizedClapPattern) !== JSON.stringify(basicClapPattern)) {
             setTimeout(() => {
-              setClapPattern(personalizedClapPattern);
+              updateSongData(current => ({
+                ...current,
+                tracks: {
+                  ...current.tracks,
+                  clap: {
+                    ...current.tracks.clap,
+                    pattern: personalizedClapPattern
+                  }
+                }
+              }));
               audioEngineRef.current?.setClapPattern(personalizedClapPattern);
             }, 500);
           }
@@ -586,9 +714,18 @@ export default function CreatePage() {
         // 1. Change title and start with basic bass pattern
         setShowBassTrack(true);
         const basicBassPattern = [0, 2, 8, 10]; // Simple bass pattern
-        setBassPattern(basicBassPattern);
+        updateSongData(current => ({
+          ...current,
+          tracks: {
+            ...current.tracks,
+            bass: {
+              ...current.tracks.bass,
+              pattern: basicBassPattern,
+              muted: false // Unmute the bass track now that we're introducing it
+            }
+          }
+        }));
         audioEngineRef.current?.setBassPattern(basicBassPattern);
-        // Unmute the bass track now that we're introducing it
         audioEngineRef.current?.setBassMuted(false);
         
         // 2. Show educational text
@@ -623,7 +760,16 @@ export default function CreatePage() {
           // Only upgrade if it's different from basic
           if (JSON.stringify(personalizedBassPattern) !== JSON.stringify(basicBassPattern)) {
             setTimeout(() => {
-              setBassPattern(personalizedBassPattern);
+              updateSongData(current => ({
+                ...current,
+                tracks: {
+                  ...current.tracks,
+                  bass: {
+                    ...current.tracks.bass,
+                    pattern: personalizedBassPattern
+                  }
+                }
+              }));
               audioEngineRef.current?.setBassPattern(personalizedBassPattern);
             }, 500);
           }
@@ -645,9 +791,32 @@ export default function CreatePage() {
         if (address && audioEngineRef.current) {
           console.log('Generating acid melody from wallet address:', address);
           const generatedMelody = audioEngineRef.current.generateAcidMelodyFromWallet(address);
-          setAcidPattern(generatedMelody);
+          
+          // Convert melody format to schema format
+          const acidSteps: number[] = [];
+          const acidNotes: string[] = new Array(16).fill("");
+          
+          generatedMelody.forEach(({ step, note }) => {
+            if (note) {
+              acidSteps.push(step);
+              acidNotes[step] = note;
+            }
+          });
+          
+          updateSongData(current => ({
+            ...current,
+            tracks: {
+              ...current.tracks,
+              acid: {
+                ...current.tracks.acid,
+                pattern: acidSteps,
+                notes: acidNotes,
+                muted: false // Unmute the acid track now that we're introducing it
+              }
+            }
+          }));
+          
           audioEngineRef.current.setAcidPattern(generatedMelody);
-          // Unmute the acid track now that we're introducing it
           audioEngineRef.current.setAcidMuted(false);
           console.log('Generated acid melody:', generatedMelody);
         }
@@ -675,10 +844,15 @@ export default function CreatePage() {
           const personalAcidText = getPersonalAcidMessage();
           setSequencerText(personalAcidText);
           setSequencerTextVisible(true);
+          
+          // Export the final song data for demonstration
+          setTimeout(() => {
+            exportSongData();
+          }, 2000);
         }, 300);
       }, 300);
     }
-  }, [progressionStage, generateKickPattern, getPersonalKickMessage, generateClapPattern, getPersonalClapMessage, generateBassPattern, getPersonalBassMessage, getPersonalAcidMessage, userSnapshot, address]);
+  }, [progressionStage, generateKickPattern, getPersonalKickMessage, generateClapPattern, getPersonalClapMessage, generateBassPattern, getPersonalBassMessage, getPersonalAcidMessage, userSnapshot, address, exportSongData]);
 
   const animateSquareTransition = useCallback(() => {
     console.log("Animation triggered - simple transition");
@@ -696,7 +870,16 @@ export default function CreatePage() {
 
       // ALWAYS start with basic pattern first
       const basicPattern = [0, 4, 8, 12];
-      setKickPattern(basicPattern);
+      updateSongData(current => ({
+        ...current,
+        tracks: {
+          ...current.tracks,
+          kick: {
+            ...current.tracks.kick,
+            pattern: basicPattern
+          }
+        }
+      }));
       if (audioEngineRef.current) {
         audioEngineRef.current.setKickPattern(basicPattern);
       }
@@ -812,7 +995,7 @@ export default function CreatePage() {
     } catch (error) {
       console.error("Failed to start audio:", error);
     }
-  }, [handleStepChange, showSequencer, kickPattern]);
+  }, [handleStepChange, showSequencer]);
 
   return (
     <div className="h-screen bg-black text-white flex flex-col relative overflow-hidden">
@@ -910,10 +1093,7 @@ export default function CreatePage() {
                   ) : (
                     <DrumSequencer
                       currentStep={currentStep}
-                      kickPattern={kickPattern}
-                      clapPattern={clapPattern}
-                      bassPattern={bassPattern}
-                      acidPattern={acidPattern}
+                      songData={songData}
                       showClapTrack={showClapTrack}
                       showBassTrack={showBassTrack}
                       showAcidTrack={showAcidTrack}
