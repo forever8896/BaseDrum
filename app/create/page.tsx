@@ -326,6 +326,7 @@ export default function CreatePage() {
   
   // AI processing state
   const [isAIProcessing, setIsAIProcessing] = useState(false);
+  const [isPlayingAIVersion, setIsPlayingAIVersion] = useState(false);
   
   // Mint state
   const [showMintButton, setShowMintButton] = useState(false);
@@ -568,7 +569,7 @@ export default function CreatePage() {
     const demoAddress = "0x2211d1D0020DAEA8039E46Cf1367962070d77DA9";
     const shortAddress = `${demoAddress.slice(0, 6)}...${demoAddress.slice(-4)}`;
     const hexSection = demoAddress.slice(2, 18); // First 16 hex chars after 0x
-    return `Because your wallet address is ${shortAddress}, you get a completely unique acid melody! Each hex character (${hexSection}) maps to notes in a minor scale, with D/E/F creating musical rests.`;
+    return `We've used your unique wallet address ${shortAddress} to map each hex character (${hexSection}) to a minor scale, with D/E/F creating musical rests.`;
   }, [address]);
 
   const sendToAIProducer = useCallback(async () => {
@@ -625,15 +626,16 @@ export default function CreatePage() {
 
       // Show completion message
       setIsAIProcessing(false);
+      setIsPlayingAIVersion(true); // Hide sequencer for full track playback
       setProgressionStage('complete');
       setSequencerTextVisible(false);
       setTimeout(() => {
-        setSequencerText("🎵 Your personalized techno track has been enhanced by AI! 🎵");
+        setSequencerText(`🎵 Your track has been expanded to a full ${validatedImprovedSong.metadata.bars}-bar techno journey! Playing the complete arrangement with buildups and drops. Ready to mint? 🎵`);
         setSequencerTextVisible(true);
         
-        // Export final song data
+        // Show mint button after a delay
         setTimeout(() => {
-          exportSongData();
+          setShowMintButton(true);
         }, 2000);
       }, 300);
 
@@ -1166,9 +1168,9 @@ export default function CreatePage() {
                 {/* Title */}
                 <div className="absolute top-24 left-0 right-0 flex justify-center z-20">
                   <h1 className={`text-3xl font-bold font-[var(--font-orbitron)] tracking-wide ${
-                    showAcidTrack ? 'text-[#fea8cd]' : showBassTrack ? 'text-[#b6f569]' : showSnareTrack ? 'text-[#ffd12f]' : 'text-blue-600'
+                    isPlayingAIVersion ? 'text-green-400' : showAcidTrack ? 'text-[#fea8cd]' : showBassTrack ? 'text-[#b6f569]' : showSnareTrack ? 'text-[#ffd12f]' : 'text-blue-600'
                   }`}>
-                    {showAcidTrack ? 'Your wallet\'s melody' : showBassTrack ? 'Finally, let\'s add bass' : showSnareTrack ? 'Now let\'s add a snare' : 'It starts with a kick'}
+                    {isPlayingAIVersion ? 'Your Complete Techno Track' : showAcidTrack ? 'Your wallet\'s melody' : showBassTrack ? 'Finally, let\'s add bass' : showSnareTrack ? 'Now let\'s add a snare' : 'It starts with a kick'}
                   </h1>
                 </div>
 
@@ -1193,6 +1195,12 @@ export default function CreatePage() {
                   {isLoadingData ? (
                     <div className="text-white text-lg font-[var(--font-orbitron)]">
                       Analyzing your onchain activity...
+                    </div>
+                  ) : isPlayingAIVersion ? (
+                    <div className="text-center font-[var(--font-orbitron)]">
+                      <div className="text-6xl mb-4">🎵</div>
+                      <div className="text-xl text-gray-300">Playing full 32-bar arrangement</div>
+                      <div className="text-sm text-gray-500 mt-2">Listen to your complete techno journey</div>
                     </div>
                   ) : (
                     <DrumSequencer

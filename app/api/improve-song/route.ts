@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     // Validate incoming song data
     const validatedInput = validateSongData(songData);
     
-    const prompt = `You are an AI music producer specializing in techno music, following the sacred 10 Rules of Techno. You've been given a basic song structure that was generated based on a user's onchain and social data. Your job is to transform it into a proper techno track while keeping the personalized elements that were derived from their data.
+    const prompt = `You are an AI music producer specializing in techno music, following the sacred 10 Rules of Techno. You've been given a basic 16-step loop that was generated based on a user's onchain and social data. Your job is to transform it into a full 32-bar techno track with proper arrangement structure (buildups, drops, breakdowns) while keeping the personalized elements that were derived from their data.
 
 THE 10 RULES OF TECHNO (follow these religiously):
 
@@ -135,42 +135,56 @@ Here is the song schema that defines what's possible:
 
 ${SONG_SCHEMA}
 
-Here is the current song data to improve:
+Here is the current 16-step loop to expand into a full track:
 
 ${JSON.stringify(validatedInput, null, 2)}
 
 CRITICAL TRANSFORMATION REQUIREMENTS:
 
-🚫 **NEVER USE QUANTIZED PATTERNS** - The current patterns are too rigid and mechanical
-✅ **ADD SYNCOPATION EVERYWHERE** - Every instrument should have swing, off-beats, and rhythmic interest
-✅ **TRANSFORM MELODIES** - Make the acid melody truly melodic, not just step sequences
-✅ **FOCUS ON GROOVE** - Every pattern should interlock with others to create an irresistible groove
-✅ **CREATE MOVEMENT** - Patterns should evolve, breathe, and have organic feel
+🎵 **CREATE A FULL 32-BAR ARRANGEMENT** - Expand from 16 steps to 512 steps (32 bars × 16 steps)
+🎭 **BUILD PROPER SONG STRUCTURE** - Create intro, buildups, drops, breakdowns, and climax sections
+🚫 **NEVER USE QUANTIZED PATTERNS** - Add syncopation, swing, and organic feel throughout
+✅ **EVOLVE PATTERNS OVER TIME** - Patterns should change and develop across the 32 bars
+✅ **USE ARRANGEMENT SECTIONS** - Define which tracks play in which sections for dynamic flow
 
-Your transformation tasks:
+Your arrangement tasks:
 
-1. **KICK PATTERNS**: Add syncopation, ghost notes, and groove. Make it swing and breathe.
-2. **ACID MELODIES**: Transform into proper melodic phrases with musical intervals, not just random notes. Add slides, accents, and expression.
-3. **HI-HATS/909s**: Create complex polyrhythmic patterns that dance around the beat. Add different velocities and ghost notes.
-4. **BASS LINES**: Make them hypnotic and melodic with proper harmonic movement. Add syncopation and groove.
-5. **SNARES/PERCUSSION**: Place them in unexpected but musical places that create tension and release.
-6. **VELOCITY PATTERNS**: Create massive dynamic variation - some hits quiet, some loud, creating natural flow.
-7. **GHOST NOTES**: Add subtle hits that create groove without overwhelming the main pattern.
-8. **POLYMETER**: Make some patterns different lengths so they phase in and out of alignment.
+1. **32-BAR STRUCTURE**: Create a full journey from bars 1-32 with clear sections
+2. **INTRO (Bars 1-4)**: Start minimal, establish the foundation
+3. **BUILDUP 1 (Bars 5-8)**: Add layers gradually 
+4. **DROP 1 (Bars 9-16)**: First main section with most elements
+5. **BREAKDOWN (Bars 17-20)**: Strip back to essentials
+6. **BUILDUP 2 (Bars 21-24)**: Build tension again
+7. **DROP 2/CLIMAX (Bars 25-32)**: Final explosive section
+
+PATTERN EXPANSION:
+- Transform each 16-step pattern into evolving 512-step patterns
+- Add variation every 4-8 bars to keep interest
+- Create call-and-response between instruments
+- Use velocity and ghost notes for micro-dynamics
+- Make acid melodies evolve and breathe throughout
+
+ARRANGEMENT SECTIONS:
+- Use the arrangement object to define which tracks play when
+- Create natural flow between sections
+- Build energy through strategic track layering
+- Use breakdowns to create tension and release
 
 GROOVE PHILOSOPHY:
 - Nothing should land exactly on the beat unless it's intentional
-- Every instrument should have its own rhythmic personality
+- Every instrument should have its own rhythmic personality throughout the journey
 - Create spaces and tension through strategic placement
 - Make it impossible NOT to move your body to this music
 
-KEEP the personalized elements from their data but make them GROOVE. Transform rigid patterns into living, breathing, dancing music.
+KEEP the personalized elements from their data but expand them across 32 bars. Transform the simple loop into a full techno journey.
 
-Please return ONLY the improved song data as valid JSON that conforms to the schema. Do not include any explanation text, just the JSON object.`;
+Update metadata: set bars to 32, steps to 512, and title to include "32-Bar Mix" suffix.
+
+Please return ONLY the expanded song data as valid JSON that conforms to the schema. Do not include any explanation text, just the JSON object.`;
 
     const message = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 4000,
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 8000,
       messages: [
         {
           role: "user",
