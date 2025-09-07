@@ -19,79 +19,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "rea
 import { useSearchParams } from "next/navigation";
 import { BaseDrumAudioEngine } from "@/lib/audioEngine";
 import { SongData } from "@/lib/songData";
-import { 
-  PatternGenerator, 
-  GROOVE_TEMPLATES, 
-  PRESET_CONFIGS,
-  type PatternConfig,
-  type MusicalConfig,
-  type KeyType,
-  type ScaleType
-} from "@/lib/patternGenerator";
-// import { convertDetroitToSongData } from "@/lib/songSchema-new";
+import { DataFetcher, UserDataSnapshot } from "@/lib/data-fetcher";
+import { DataDrivenMusicGenerator, GeneratedMusic, MusicExplanation } from "@/lib/data-driven-music-generator";
 
-// Converter function for Detroit pattern data to current SongData format
-function convertDetroitToSongData(detroitData: {
-  tracks: any;
-  style: { name: string; description: string; tempo: number; key: string; scale: string; };
-  effects: { filterCutoff: number; reverbWet: number; };
-  volumes: Record<string, number>;
-}): SongData {
-  const { tracks, style, effects, volumes } = detroitData;
-  
-  // Calculate total bars and steps from the generated tracks
-  const maxSteps = Math.max(
-    ...Object.values(tracks).map((track: any) => 
-      track?.pattern ? Math.max(...track.pattern) + 1 : 0
-    )
-  );
-  const totalBars = Math.max(8, Math.min(128, Math.ceil(maxSteps / 16)));
-  const totalSteps = Math.max(16, Math.min(2048, maxSteps));
-  
-  // Convert tracks to current format
-  const convertedTracks: Record<string, any> = {};
-  const validTrackNames = ['kick', 'hihat', 'hihat909', 'bass', 'lead', 'snare', 'rumble', 'ride', 'clap', 'acid', 'pulse'];
-  
-  Object.entries(tracks).forEach(([trackName, track]: [string, any]) => {
-    if (validTrackNames.includes(trackName) && track && track.pattern && track.pattern.length > 0) {
-      convertedTracks[trackName] = {
-        pattern: track.pattern,
-        notes: track.notes,
-        velocity: track.velocity || Array(totalSteps).fill(0.7),
-        ghostNotes: track.ghostNotes,
-        muted: false,
-        volume: volumes[trackName] ?? -10
-      };
-    }
-  });
-  
-  return {
-    metadata: {
-      title: `${style.name} - Detroit Generation`,
-      artist: "BaseDrum",
-      version: "1.0",
-      created: new Date().toISOString(),
-      bpm: Math.max(60, Math.min(200, style.tempo)),
-      bars: totalBars,
-      steps: totalSteps,
-      format: "basedrum-v1"
-    },
-    effects: {
-      filter: {
-        cutoff: Math.max(0, Math.min(1, (effects.filterCutoff - 20) / (20000 - 20))),
-        type: "lowpass",
-        startFreq: effects.filterCutoff,
-        endFreq: effects.filterCutoff
-      },
-      reverb: {
-        wet: Math.max(0, Math.min(1, effects.reverbWet)),
-        roomSize: 0.7,
-        decay: 2.0
-      }
-    },
-    tracks: convertedTracks
-  };
-}
 
 interface GaugeProps {
   value: number;
@@ -262,49 +192,89 @@ function CircularGauge({ value, onChange, position }: GaugeProps) {
 }
 
 function OnboardPageContent() {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const searchParams = useSearchParams();
   const audioEngineRef = useRef<BaseDrumAudioEngine | null>(null);
   const songDataRef = useRef<SongData>(createSimplePulse());
-  const generatedSongRef = useRef<SongData | null>(null);
-  const patternGeneratorRef = useRef<PatternGenerator | null>(null);
+  const generatedConfigRef = useRef<SimplifiedMusicConfig | null>(null);
   const [audioStarted, setAudioStarted] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [beatIntensity, setBeatIntensity] = useState(0);
   const [showFlashText, setShowFlashText] = useState<string | null>(null);
   const [showButton, setShowButton] = useState(false);
-  const [currentStage, setCurrentStage] = useState(0);
-  const [stageTitle, setStageTitle] = useState('');
-  const [stageText, setStageText] = useState('');
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [currentLayer, setCurrentLayer] = useState(0);
+  const [layerReason, setLayerReason] = useState('');
+  const [isLayerTransitioning, setIsLayerTransitioning] = useState(false);
   const [leftGauge, setLeftGauge] = useState(0);
   const [rightGauge, setRightGauge] = useState(0);
+  const [userDataSnapshot, setUserDataSnapshot] = useState<UserDataSnapshot | null>(null);
+  const [generatedMusic, setGeneratedMusic] = useState<GeneratedMusic | null>(null);
   const beatCountRef = useRef(0);
+  const barsCountRef = useRef(0);
   const muteStatesRef = useRef({
-    kick: true, // Mute kick initially, pulse will handle the beat
-    hihat909: true,
-    hihat: true,
-    bass: true,
-    lead: true,
-    snare: true,
-    rumble: true,
-    ride: true,
-    clap: true,
-    acid: true,
-    pulse: false, // Unmute pulse for initial beat
+    kick: false,     // Enable kick from data
+    hihat909: false, // Enable hi-hat from data
+    bass: false,     // Enable bass from data
+    clap: false,     // Enable snare/clap from data
+    lead: false,     // Enable lead from data
+    pulse: true,     // Disable pulse initially
   });
 
-  // Initialize pattern generator
+  // Fetch user data on wallet connection
   useEffect(() => {
-    if (!patternGeneratorRef.current) {
-      patternGeneratorRef.current = new PatternGenerator(Math.floor(Math.random() * 1000000));
+    const fetchUserData = async () => {
+      if (!address || userDataSnapshot) return;
+      
+      try {
+        const dataFetcher = new DataFetcher();
+        
+        // Get real context from MiniKit/Farcaster if available
+        let realContext = null;
+        
+        // Try to get MiniKit context
+        if (typeof window !== 'undefined' && (window as any).MiniKit) {
+          try {
+            const miniKit = (window as any).MiniKit;
+            realContext = miniKit.context;
+            console.log('Got real MiniKit context:', realContext);
+          } catch (e) {
+            console.log('MiniKit not available:', e);
+          }
+        }
+        
+        // Fetch user data with real context (null if not available)
+        const userData = await dataFetcher.fetchUserSnapshot(realContext, address);
+        setUserDataSnapshot(userData);
+        
+        // Generate music from user data
+        const music = DataDrivenMusicGenerator.generateMusic(userData);
+        setGeneratedMusic(music);
+        
+        // Convert to song data for audio engine
+        const songData = DataDrivenMusicGenerator.musicToSongData(music);
+        generatedConfigRef.current = songData;
+        
+        console.log('User data fetched (no mocks):', userData);
+        console.log('Generated music:', music);
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
+        
+        // Generate default music on error
+        const music = DataDrivenMusicGenerator.generateMusic(null);
+        setGeneratedMusic(music);
+        const songData = DataDrivenMusicGenerator.musicToSongData(music);
+        generatedConfigRef.current = songData;
+      }
+    };
+
+    if (isConnected && address) {
+      fetchUserData();
     }
-  }, []);
+  }, [isConnected, address, userDataSnapshot]);
 
   function createSimplePulse(): SongData {
-    // Create simple pulse pattern for stage 0 and 1
-    const pulsePattern = [0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60];
+    // Create simple pulse pattern - 4 bars, 4 steps per bar = 16 steps
+    const pulsePattern = [0, 4, 8, 12]; // Quarter note pulse
     return {
       metadata: {
         title: "Onboard Pulse",
@@ -313,7 +283,7 @@ function OnboardPageContent() {
         created: new Date().toISOString(),
         bpm: 140,
         bars: 4,
-        steps: 64,
+        steps: 16,
         format: "basedrum-v1"
       },
       effects: {
@@ -332,7 +302,7 @@ function OnboardPageContent() {
       tracks: {
         pulse: {
           pattern: pulsePattern,
-          velocity: Array(64).fill(0.9),
+          velocity: Array(16).fill(0.9),
           muted: false,
           volume: -6
         }
@@ -340,71 +310,63 @@ function OnboardPageContent() {
     };
   }
 
-  // Generate full Detroit techno track following the exact documented approach
-  const generateFullTrack = useCallback(async (): Promise<SongData> => {
-    if (!patternGeneratorRef.current) {
-      patternGeneratorRef.current = new PatternGenerator(Math.floor(Math.random() * 1000000));
-    }
+  // Add the next layer to the music based on user data
+  const addNextLayer = useCallback(() => {
+    if (!generatedConfigRef.current || !audioEngineRef.current) return;
 
-    const generator = patternGeneratorRef.current;
+    const config = generatedConfigRef.current;
+    const layerOrder = ['syncopation', 'bass', 'kicks', 'hihat', 'lead'];
     
-    // Use the exact PRESET_CONFIGS.classic as documented
-    const config: PatternConfig = {
-      density: 0.6,       // How many steps are active (60%)
-      groove: 0.8,        // Amount of swing/humanization (80%)
-      complexity: 0.4,    // Pattern complexity (40%)
-      swing: 0.3,         // Shuffle timing (30%)
-      humanization: 0.2   // Micro-timing variations (20%)
-    };
-
-    // Use G dorian as documented for authentic Detroit sound
-    const musicalConfig: MusicalConfig = {
-      key: 'G' as KeyType,
-      scale: 'dorian' as ScaleType,
-      octave: 2  // Lower octave as documented
-    };
-
-    // Use Detroit swing groove template with exact specs
-    const grooveTemplate = GROOVE_TEMPLATES.detroit_swing;
-
-    // Generate Detroit patterns using the exact documented method
-    const detroitTracks = generator.generateConsistentTrack(
-      config,
-      musicalConfig,
-      grooveTemplate,
-      Math.floor(Math.random() * 1000000)
-    );
-
-    // Prepare Detroit pattern data exactly as documented
-    const detroitData = {
-      tracks: detroitTracks,        // The generated patterns with pulse included
-      style: {
-        name: "Detroit Techno",
-        description: "Motor City groove with soul and precision",
-        tempo: 128,                 // Standard Detroit tempo
-        key: musicalConfig.key,     // G
-        scale: musicalConfig.scale, // dorian
-        leadPreset: "detroit_lead"
-      },
-      effects: {
-        filterCutoff: 20000,        // Start with no filtering
-        reverbWet: 0.0              // Start dry as documented
-      },
-      volumes: {
-        kick: -6,
-        hihat909: -18,
-        snare: -8,
-        clap: -12,
-        bass: -10,
-        lead: -8,
-        acid: -12,
-        pulse: -6  // Same as onboard pulse - CRITICAL for continuity
+    if (currentLayer < layerOrder.length) {
+      const layerName = layerOrder[currentLayer];
+      setIsLayerTransitioning(true);
+      
+      // Show the reason for this layer
+      let reason = '';
+      let trackName = '';
+      
+      switch (layerName) {
+        case 'syncopation':
+          reason = config.syncopation.reason;
+          trackName = 'clap';
+          muteStatesRef.current.clap = false;
+          break;
+        case 'bass':
+          reason = config.bass.reason;
+          trackName = 'bass';
+          muteStatesRef.current.bass = false;
+          break;
+        case 'kicks':
+          reason = config.kicks.reason;
+          trackName = 'kick';
+          muteStatesRef.current.kick = false;
+          break;
+        case 'hihat':
+          reason = config.hihat.reason;
+          trackName = 'hihat909';
+          muteStatesRef.current.hihat909 = false;
+          break;
+        case 'lead':
+          reason = config.lead.reason;
+          trackName = 'lead';
+          muteStatesRef.current.lead = false;
+          break;
       }
-    };
-
-    // Convert using the documented converter function
-    return convertDetroitToSongData(detroitData);
-  }, []);
+      
+      setLayerReason(reason);
+      setCurrentLayer(prev => prev + 1);
+      
+      console.log(`Added layer ${currentLayer + 1}: ${layerName} - ${reason}`);
+      
+      // Clear the transition after showing the reason
+      setTimeout(() => {
+        setIsLayerTransitioning(false);
+        setTimeout(() => {
+          setLayerReason('');
+        }, 2000); // Show reason for 2 seconds
+      }, 500);
+    }
+  }, [currentLayer, generatedConfigRef, audioEngineRef]);
 
   const pulsePattern = useMemo(() => [0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60], []);
   const isPulseStep = useCallback((step: number): boolean => {
@@ -412,112 +374,69 @@ function OnboardPageContent() {
     return pulsePattern.includes(step % 64);
   }, [pulsePattern]);
 
-  // Stage configuration
-  const stages = useMemo(() => [
-    { 
-      title: '', 
-      text: '', 
-      buttonText: 'Create my track',
-      showFlash: true 
-    },
-    { 
-      title: 'Lesson 1', 
-      text: 'Is the pulse. It goes bam bam bam bam.', 
-      buttonText: 'Continue',
-      showFlash: false 
-    },
-    { 
-      title: 'Building your rhythm', 
-      text: 'Mapping your transactions to beats...', 
-      buttonText: 'Next',
-      showFlash: false 
-    },
-    { 
-      title: 'Your track is ready', 
-      text: 'BaseDrum has composed your unique sound', 
-      buttonText: 'Play track',
-      showFlash: false 
-    }
-  ], []);
 
   const handleStepChange = useCallback((step: number) => {
     setCurrentStep(step);
     
-    // Check for beat hits based on current stage
-    let isBeatStep = false;
-    
-    if (currentStage <= 1) {
-      // Stages 0-1: Use simple pulse pattern
-      isBeatStep = isPulseStep(step);
-    } else if (generatedSongRef.current) {
-      // Stages 2+: Use generated track patterns for beat detection
-      const songData = generatedSongRef.current;
-      isBeatStep = songData.tracks.kick?.pattern.includes(step) || 
-                   songData.tracks.pulse?.pattern.includes(step) ||
-                   false;
-    }
+    // Check for pulse beats
+    const isBeatStep = isPulseStep(step);
     
     if (isBeatStep) {
       beatCountRef.current += 1;
       
-      // Only show flash text on stage 0 (initial stage)
-      if (currentStage === 0 && stages[0].showFlash) {
-        if (beatCountRef.current === 1) {
-          setShowFlashText("base");
-          setTimeout(() => setShowFlashText(null), 150);
-        } else if (beatCountRef.current === 2) {
-          setShowFlashText("drum");
-          setTimeout(() => setShowFlashText(null), 150);
-        }
+      // Count bars (4 beats = 1 bar in our pulse pattern)
+      if (beatCountRef.current % 4 === 0) {
+        barsCountRef.current += 1;
+        
+        // DISABLED layering for now - just keep pulse playing
+        // if (barsCountRef.current > 1 && (barsCountRef.current - 1) % 4 === 0 && currentLayer < 5) {
+        //   addNextLayer();
+        // }
       }
       
-      // Show initial button after 4 beats (only on stage 0)
-      if (beatCountRef.current === 4 && currentStage === 0) {
+      // Show flash text on first beats
+      if (beatCountRef.current === 1) {
+        setShowFlashText("base");
+        setTimeout(() => setShowFlashText(null), 150);
+      } else if (beatCountRef.current === 2) {
+        setShowFlashText("drum");
+        setTimeout(() => setShowFlashText(null), 150);
+      }
+      
+      // Show initial button after 4 beats
+      if (beatCountRef.current === 4) {
         setShowButton(true);
       }
     }
-  }, [beatCountRef, currentStage, stages, isPulseStep, generatedSongRef]);
+  }, [isPulseStep, addNextLayer, currentLayer]);
 
   const startAudio = useCallback(async () => {
-    if (audioEngineRef.current && !audioStarted) {
+    if (audioEngineRef.current && !audioStarted && generatedConfigRef.current) {
       try {
+        // Use the generated song data directly
+        songDataRef.current = generatedConfigRef.current;
+        
+        // Initialize with generated data and start playing
+        await audioEngineRef.current.initialize(songDataRef, muteStatesRef);
         await audioEngineRef.current.play();
+        
         setAudioStarted(true);
         beatCountRef.current = 0;
-        setShowButton(false);
-        setCurrentStage(0);
-        setStageTitle('');
-        setStageText('');
+        barsCountRef.current = 0;
+        
+        console.log("Audio started with generated song data:", generatedConfigRef.current);
       } catch (error) {
         console.error("Failed to start audio:", error);
       }
     }
-  }, [audioEngineRef, audioStarted]);
+  }, [audioEngineRef, audioStarted, generatedConfigRef]);
 
-  // Initialize stage from URL parameter
+  // Show button when user data is loaded
   useEffect(() => {
-    const stageParam = searchParams.get('stage');
-    if (stageParam) {
-      const stageNumber = parseInt(stageParam, 10);
-      if (stageNumber >= 0 && stageNumber < stages.length) {
-        setCurrentStage(stageNumber);
-        setStageTitle(stages[stageNumber].title);
-        setStageText(stages[stageNumber].text);
-        
-        // If not on initial stage, show button
-        if (stageNumber > 0) {
-          setShowButton(true);
-          
-          // Auto-start audio if connected and not already playing
-          if (isConnected && !audioStarted && audioEngineRef.current) {
-            setTimeout(() => {
-              startAudio();
-            }, 500); // Small delay to ensure everything is initialized
-          }
-        }
-      }
+    if (generatedConfigRef.current && !audioStarted) {
+      setShowButton(true);
     }
-  }, [searchParams, isConnected, audioStarted, stages, startAudio]);
+  }, [generatedConfigRef.current, audioStarted]);
 
   useEffect(() => {
     const initAudio = async () => {
@@ -528,7 +447,7 @@ function OnboardPageContent() {
         });
         
         await audioEngineRef.current.initialize(songDataRef, muteStatesRef);
-        audioEngineRef.current.setBPM(140);
+        audioEngineRef.current.setBPM(140); // Keep original fast BPM
       }
     };
 
@@ -541,164 +460,6 @@ function OnboardPageContent() {
     };
   }, [handleStepChange]);
 
-  const progressToNextStage = async () => {
-    // Handle final stage "Play track" button
-    if (currentStage === stages.length - 1) {
-      // We're at the final stage - "Play track" should activate the full generated track
-      if (generatedSongRef.current && audioEngineRef.current) {
-        console.log("Activating full generated track...");
-        
-        // Seamlessly switch to generated song
-        songDataRef.current = generatedSongRef.current;
-        
-        // Update the sequence length to match the new song (512 steps instead of 64)
-        audioEngineRef.current.updateSequenceLength();
-        
-        // Debug: Check what's actually in the generated tracks
-        console.log("Generated track details:");
-        Object.entries(generatedSongRef.current.tracks).forEach(([trackName, track]) => {
-          console.log(`${trackName}:`, {
-            pattern: track.pattern,
-            patternLength: track.pattern?.length,
-            volume: track.volume,
-            muted: track.muted
-          });
-        });
-        
-        // Enable all tracks from generated song
-        Object.keys(generatedSongRef.current.tracks).forEach(trackName => {
-          if (muteStatesRef.current.hasOwnProperty(trackName)) {
-            (muteStatesRef.current as any)[trackName] = false;
-          }
-        });
-        
-        // Keep pulse enabled since the generated track has its own pulse that sounds like the onboard one
-        // muteStatesRef.current.pulse = true; // REMOVED - let the generated pulse play
-        
-        console.log("Full track activated with tracks:", Object.keys(generatedSongRef.current.tracks));
-        console.log("Mute states after activation:", { ...muteStatesRef.current });
-        const engineState = audioEngineRef.current.getState();
-        console.log("Audio engine state:", {
-          isPlaying: engineState.isPlaying,
-          currentStep: engineState.currentStep
-        });
-        
-        // Ensure audio engine is still playing after track switch
-        if (audioEngineRef.current && !engineState.isPlaying) {
-          console.log("Audio engine stopped, restarting...");
-          try {
-            await audioEngineRef.current.play();
-            const newState = audioEngineRef.current.getState();
-            console.log("Audio engine restarted successfully, new state:", newState);
-          } catch (error) {
-            console.error("Failed to restart audio engine:", error);
-          }
-        } else if (engineState.isPlaying) {
-          console.log("Audio engine is already playing, track should switch seamlessly");
-        }
-        
-        // Force a step change callback to verify the new track is being read
-        setTimeout(() => {
-          const currentState = audioEngineRef.current?.getState();
-          console.log("Current song tracks after 1 second:", Object.keys(songDataRef.current.tracks));
-          console.log("Sample patterns:", {
-            kick: songDataRef.current.tracks.kick?.pattern?.slice(0, 5),
-            pulse: songDataRef.current.tracks.pulse?.pattern?.slice(0, 5)
-          });
-          console.log("Audio engine state after 1 second:", {
-            isPlaying: currentState?.isPlaying,
-            currentStep: currentState?.currentStep
-          });
-          console.log("Mute states after 1 second:", { ...muteStatesRef.current });
-        }, 1000);
-      } else {
-        console.error("No generated track available or audio engine not ready");
-      }
-      return;
-    }
-
-    if (currentStage < stages.length - 1) {
-      const nextStage = currentStage + 1;
-      setIsTransitioning(true);
-      
-      // Update URL without triggering page reload
-      const url = new URL(window.location.href);
-      url.searchParams.set('stage', nextStage.toString());
-      window.history.pushState({}, '', url.toString());
-      
-      // Handle stage-specific transitions - keep music playing throughout
-      if (nextStage === 1) {
-        // Stage 0 -> 1: Keep square large and dancing, continue pulse
-        setShowButton(false);
-        
-        // Ensure pulse continues playing (should already be unmuted)
-        muteStatesRef.current.pulse = false;
-        muteStatesRef.current.kick = true;
-        
-        // Ensure audio engine stays playing
-        if (audioEngineRef.current && !audioEngineRef.current.getState().isPlaying) {
-          audioEngineRef.current.play().catch(console.error);
-        }
-      } else if (nextStage === 2) {
-        // Stage 1 -> 2: Start generating full track while keeping pulse playing
-        setIsGenerating(true);
-        setShowButton(false);
-        
-        // Keep pulse playing during generation
-        muteStatesRef.current.pulse = false;
-        
-        // Ensure audio engine stays playing during generation
-        if (audioEngineRef.current && !audioEngineRef.current.getState().isPlaying) {
-          audioEngineRef.current.play().catch(console.error);
-        }
-        
-        try {
-          // Generate full track in background while pulse continues
-          const fullTrack = await generateFullTrack();
-          generatedSongRef.current = fullTrack;
-          console.log("Generated full track:", fullTrack);
-          console.log("Generated track keys:", Object.keys(fullTrack.tracks));
-          console.log("Sample track patterns:", {
-            kick: fullTrack.tracks.kick?.pattern?.slice(0, 10),
-            bass: fullTrack.tracks.bass?.pattern?.slice(0, 10)
-          });
-        } catch (error) {
-          console.error("Failed to generate track:", error);
-        } finally {
-          setIsGenerating(false);
-        }
-      } else if (nextStage === 3) {
-        // Stage 2 -> 3: Prepare for full track transition (actual switch happens on "Play track" click)
-        // Keep pulse playing until user clicks "Play track"
-        muteStatesRef.current.pulse = false;
-        
-        // Ensure audio engine stays playing
-        if (audioEngineRef.current && !audioEngineRef.current.getState().isPlaying) {
-          audioEngineRef.current.play().catch(console.error);
-        }
-      }
-      
-      // Fade out current content (audio continues playing)
-      setTimeout(() => {
-        // Update stage content (no audio interruption)
-        setCurrentStage(nextStage);
-        setStageTitle(stages[nextStage].title);
-        setStageText(stages[nextStage].text);
-        
-        // Fade in new content
-        setTimeout(() => {
-          setIsTransitioning(false);
-          if (!isGenerating) {
-            setShowButton(true);
-          }
-        }, 300);
-      }, 200);
-    }
-  };
-
-  const handleCreateTrack = () => {
-    progressToNextStage();
-  };
 
   const handleFilterChange = (value: number) => {
     setLeftGauge(value);
@@ -715,41 +476,29 @@ function OnboardPageContent() {
   };
 
   const getSquareStyle = () => {
-    // Keep square large and dancing throughout all stages for visual continuity
     const baseScale = 1;
     
-    // Square pulses with beat on ALL stages - continuous heartbeat
+    // Square pulses with beat intensity
     let shouldPulse = false;
     
     if (audioStarted && beatIntensity > 0) {
-      // Get the current playing track data
-      const currentSong = songDataRef.current;
+      shouldPulse = isPulseStep(currentStep);
       
-      if (currentStage <= 2) {
-        // Stages 0-2: Use pulse pattern (simple quarter notes)
-        shouldPulse = isPulseStep(currentStep);
-      } else if (currentStage === 3 && generatedSongRef.current) {
-        // Stage 3: Use generated track patterns for more complex rhythm
-        const songData = generatedSongRef.current;
-        const hasKickHit = songData.tracks.kick?.pattern.includes(currentStep);
-        const hasPulseHit = songData.tracks.pulse?.pattern.includes(currentStep);
-        const hasSnareHit = songData.tracks.snare?.pattern.includes(currentStep);
-        // Pulse on any strong beat element
-        shouldPulse = hasKickHit || hasPulseHit || hasSnareHit;
+      // Add extra intensity when more layers are active
+      const layerBonus = currentLayer * 0.02; // Each layer adds 2% more intensity
+      
+      if (shouldPulse) {
+        const pulsScale = baseScale * (1 + (beatIntensity * 0.12) + layerBonus);
+        const brightness = 1 + (beatIntensity * 0.4) + layerBonus;
+        const shadowIntensity = beatIntensity * 20 + (currentLayer * 5);
+        
+        return {
+          transform: `scale(${pulsScale})`,
+          filter: `brightness(${brightness})`,
+          boxShadow: `0 0 ${shadowIntensity}px rgba(59, 130, 246, ${beatIntensity * 0.9})`,
+          transition: 'transform 0.1s ease-out, filter 0.1s ease-out, box-shadow 0.1s ease-out'
+        };
       }
-    }
-    
-    if (shouldPulse) {
-      const pulsScale = baseScale * (1 + (beatIntensity * 0.12)); // Slightly more pronounced pulse
-      const brightness = 1 + (beatIntensity * 0.4);
-      const shadowIntensity = beatIntensity * 20; // Strong glow for large square
-      
-      return {
-        transform: `scale(${pulsScale})`,
-        filter: `brightness(${brightness})`,
-        boxShadow: `0 0 ${shadowIntensity}px rgba(59, 130, 246, ${beatIntensity * 0.9})`,
-        transition: 'transform 0.1s ease-out, filter 0.1s ease-out, box-shadow 0.1s ease-out'
-      };
     }
     
     return {
@@ -834,38 +583,6 @@ function OnboardPageContent() {
         )}
       </header>
 
-      {/* Speaker Gauges - Only show from lesson 1 onwards */}
-      {currentStage >= 1 && (
-        <>
-          {/* Left gauge - Filter */}
-          <div 
-            className="transition-opacity duration-500 ease-in-out"
-            style={{
-              opacity: isTransitioning ? 0 : 1,
-            }}
-          >
-            <CircularGauge
-              value={leftGauge}
-              onChange={handleFilterChange}
-              position="left"
-            />
-          </div>
-
-          {/* Right gauge - Reverb */}
-          <div 
-            className="transition-opacity duration-500 ease-in-out"
-            style={{
-              opacity: isTransitioning ? 0 : 1,
-            }}
-          >
-            <CircularGauge
-              value={rightGauge}
-              onChange={handleReverbChange}
-              position="right"
-            />
-          </div>
-        </>
-      )}
 
       <div className="flex-1 flex items-center justify-center relative z-10">
         {!isConnected ? (
@@ -878,60 +595,102 @@ function OnboardPageContent() {
           </Wallet>
         ) : (
           <>
-            {/* Stage Title & Text - Transitioning Content */}
-            <div className={`stage-content ${isTransitioning ? 'transitioning' : ''} absolute top-0 left-0 right-0 flex flex-col items-center pt-20 px-6 z-10`}>
-              {currentStage > 0 && (
-                <div className="flex flex-col items-center space-y-6">
-                  <h1 className="stage-title text-5xl text-center max-w-md text-blue-400">
-                    {stageTitle}
-                  </h1>
-                  <p className={`stage-text text-xl text-center text-gray-200 max-w-lg leading-relaxed ${isGenerating ? 'generating' : ''}`}>
-                    {isGenerating ? 'Generating your unique Detroit techno track...' : stageText}
-                  </p>
+            {/* User Data Display */}
+            <div className="absolute top-0 left-0 right-0 flex flex-col items-center pt-20 px-6 z-10">
+              {userDataSnapshot && generatedMusic && (
+                <div className="bg-gray-800 bg-opacity-80 p-6 rounded-lg max-w-4xl max-h-96 overflow-y-auto">
+                  <h2 className="text-xl text-blue-400 font-bold mb-4">Your Data → Music</h2>
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Left: Your Data */}
+                    <div>
+                      <h3 className="text-lg text-blue-300 font-semibold mb-3">Your Blockchain Data</h3>
+                      <div className="space-y-2 text-sm">
+                        <div><strong>Transactions:</strong> {userDataSnapshot.onchain.transactionCount || 0}</div>
+                        <div><strong>Followers:</strong> {userDataSnapshot.farcaster.followerCount || 0}</div>
+                        <div><strong>Following:</strong> {userDataSnapshot.farcaster.followingCount || 0}</div>
+                        <div><strong>Wallet Balance:</strong> {userDataSnapshot.wallet.balance || '0 ETH'}</div>
+                        <div><strong>Token Count:</strong> {userDataSnapshot.onchain.tokenCount || 0}</div>
+                        <div><strong>NFT Count:</strong> {userDataSnapshot.onchain.nftCount || 0}</div>
+                        <div><strong>ETH Price:</strong> ${userDataSnapshot.prices.eth || 'N/A'}</div>
+                      </div>
+                    </div>
+                    
+                    {/* Right: Musical Explanations */}
+                    <div>
+                      <h3 className="text-lg text-blue-300 font-semibold mb-3">How Your Data Becomes Music</h3>
+                      <div className="space-y-3">
+                        {generatedMusic.explanations.map((explanation, index) => (
+                          <div key={index} className="border-l-2 border-blue-500 pl-3">
+                            <div className="font-semibold text-blue-300">{explanation.element}</div>
+                            <div className="text-sm text-gray-300">{explanation.reason}</div>
+                            <div className="text-xs text-gray-400 mt-1">
+                              <strong>Data:</strong> {explanation.dataUsed}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              <strong>Effect:</strong> {explanation.musicalEffect}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Music Pattern Preview */}
+                  <div className="mt-6 pt-4 border-t border-gray-700">
+                    <h3 className="text-lg text-blue-300 font-semibold mb-3">Generated Pattern (4 bars, 140 BPM)</h3>
+                    <div className="grid grid-cols-5 gap-4 text-xs">
+                      <div>
+                        <strong>Kick:</strong> {generatedMusic.patterns.kick.filter(Boolean).length} hits
+                      </div>
+                      <div>
+                        <strong>Hi-Hat:</strong> {generatedMusic.patterns.hihat.filter(Boolean).length} hits
+                      </div>
+                      <div>
+                        <strong>Snare:</strong> {generatedMusic.patterns.snare.filter(Boolean).length} hits
+                      </div>
+                      <div>
+                        <strong>Bass:</strong> {generatedMusic.patterns.bass.filter(n => n > 0).length} notes
+                      </div>
+                      <div>
+                        <strong>Lead:</strong> {generatedMusic.patterns.lead.filter(n => n > 0).length} notes
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {!userDataSnapshot && isConnected && (
+                <div className="text-gray-400 text-center">
+                  <div className="animate-pulse">Fetching your blockchain data...</div>
                 </div>
               )}
             </div>
 
-            {/* Central Pulsating Square - Always Visible, Never Transitions */}
+            {/* Play Button */}
             <div className="absolute inset-0 flex items-center justify-center z-20">
-              <div className="relative">
-                <div 
-                  className="w-48 h-48 bg-blue-600 rounded-[5%] cursor-pointer hover:bg-blue-700 transition-colors"
-                  style={getSquareStyle()}
-                  onClick={currentStage === 0 ? () => startAudio() : undefined}
-                />
-                
-                {/* Flash Text - Only Stage 0 */}
-                {showFlashText && currentStage === 0 && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                    <div 
-                      className="text-white font-black text-6xl tracking-wide"
-                      style={{ 
-                        fontFamily: 'Helvetica, Arial, sans-serif',
-                        textShadow: '0 0 10px rgba(0,0,0,0.5)',
-                        animation: 'flash-in 0.15s ease-out'
-                      }}
-                    >
-                      {showFlashText}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <button 
+                className="w-48 h-48 bg-blue-600 hover:bg-blue-700 rounded-[5%] flex items-center justify-center transition-colors disabled:opacity-50"
+                onClick={startAudio}
+                disabled={!generatedConfigRef.current || audioStarted}
+              >
+                <div className="text-white font-black text-4xl">
+                  {audioStarted ? 'PLAYING' : generatedConfigRef.current ? 'PLAY' : 'LOADING'}
+                </div>
+              </button>
             </div>
             
-            {/* Dynamic Button - Fixed Position */}
+            {/* Data Status */}
             <div className="absolute bottom-10 left-0 right-0 flex justify-center z-30">
-              <button 
-                className="bg-transparent border-2 border-blue-600 hover:bg-blue-600 text-white px-8 py-4 rounded-lg text-lg font-bold font-exo disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ 
-                  opacity: showButton && !isGenerating ? 1 : 0,
-                  transition: 'opacity 200ms ease-in, background-color 200ms'
-                }}
-                onClick={handleCreateTrack}
-                disabled={isGenerating}
-              >
-                {stages[currentStage]?.buttonText}
-              </button>
+              <div className="text-center text-gray-400">
+                {userDataSnapshot ? (
+                  <div>✅ Data fetched successfully</div>
+                ) : isConnected ? (
+                  <div className="animate-pulse">🔄 Fetching your data...</div>
+                ) : (
+                  <div>👆 Connect wallet to see your data</div>
+                )}
+              </div>
             </div>
           </>
         )}

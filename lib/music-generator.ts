@@ -28,44 +28,8 @@ export interface MusicalConstraints {
 }
 
 export class MusicGenerator {
-  // Predefined good-sounding pattern templates organized by musical role
-  private static readonly PATTERN_TEMPLATES = {
-    foundation: {
-      // Kick drum patterns - the backbone
-      fourOnFloor: [true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false],
-      offbeat: [false, false, false, false, true, false, false, false, false, false, false, false, true, false, false, false],
-      broken: [true, false, false, true, false, false, false, false, true, false, false, false, false, false, false, false],
-      syncopated: [true, false, false, false, false, false, true, false, true, false, false, false, false, false, false, false],
-    },
-    rhythm: {
-      // Hi-hat and percussion patterns
-      steady: [false, false, true, false, false, false, true, false, false, false, true, false, false, false, true, false],
-      rolling: [true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false],
-      syncopated: [false, false, true, false, false, true, false, false, false, false, true, false, false, true, false, false],
-      sparse: [false, false, false, false, true, false, false, false, false, false, false, false, true, false, false, false],
-    },
-    harmony: {
-      // Bass patterns that complement the foundation
-      root: [true, false, false, true, false, false, false, false, true, false, false, true, false, false, false, false],
-      walking: [true, false, false, false, false, true, false, false, true, false, false, false, false, true, false, false],
-      pulsing: [true, false, true, false, false, false, false, false, true, false, true, false, false, false, false, false],
-      minimal: [true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false],
-    },
-    lead: {
-      // Melodic elements
-      sparse: [true, false, false, false, false, false, false, false, false, false, false, false, true, false, false, false],
-      call: [true, false, false, false, false, false, false, false, true, true, false, false, false, false, false, false],
-      response: [false, false, false, false, true, false, false, false, false, false, false, false, true, false, true, false],
-      minimal: [false, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false],
-    },
-    texture: {
-      // Snares, claps, and textural elements
-      backbeat: [false, false, false, false, true, false, false, false, false, false, false, false, true, false, false, false],
-      shuffle: [false, false, false, false, true, false, false, true, false, false, false, false, true, false, false, false],
-      ghost: [false, true, false, false, false, false, false, true, false, false, false, false, false, false, false, true],
-      accent: [false, false, false, false, true, false, false, false, false, false, true, false, true, false, false, false],
-    }
-  };
+  // Simplified approach - directly use the new simplified generator
+  private static simplifiedGenerator = import('./simplified-music-generator');
 
   // Musical scales and intervals for harmonic generation
   private static readonly SCALES = {
@@ -83,42 +47,96 @@ export class MusicGenerator {
   };
 
   /**
-   * Generate a complete track set based on user data
+   * Generate a complete track set based on user data - SIMPLIFIED VERSION
    */
-  static generateTracks(userData: UserDataSnapshot | null): GeneratedTrack[] {
-    const constraints = this.extractMusicalConstraints(userData);
-    const seed = this.createSeed(userData);
+  static async generateTracks(userData: UserDataSnapshot | null): Promise<GeneratedTrack[]> {
+    const { SimplifiedMusicGenerator } = await import('./simplified-music-generator');
     
-    console.log('Generated musical constraints:', constraints);
-    console.log('Using seed:', seed);
-
-    // Generate tracks in order of musical importance
+    // Generate simplified config
+    const config = SimplifiedMusicGenerator.generateFromUserData(userData);
+    
+    // Convert to GeneratedTrack format for compatibility
     const tracks: GeneratedTrack[] = [];
 
-    // 1. Foundation (Kick) - Always present, drives everything
-    tracks.push(this.generateFoundationTrack(constraints, seed, userData));
+    tracks.push({
+      id: 'kick',
+      name: 'Foundation Kick',
+      pattern: this.convertPatternToBooleans(config.kicks.pattern),
+      presetId: 'pulse-kick',
+      volume: 0.8,
+      effects: {},
+      reason: config.kicks.reason,
+      musicalRole: 'foundation'
+    });
 
-    // 2. Rhythm (Hi-hat) - Adds rhythmic interest
-    if (constraints.density > 0.3) {
-      tracks.push(this.generateRhythmTrack(constraints, seed, userData));
-    }
+    tracks.push({
+      id: 'hihat',
+      name: 'Rhythmic Hi-Hat',
+      pattern: this.convertPatternToBooleans(config.hihat.pattern),
+      presetId: 'synco-hihat',
+      volume: 0.6,
+      effects: {},
+      reason: config.hihat.reason,
+      musicalRole: 'rhythm'
+    });
 
-    // 3. Harmony (Bass) - Harmonic foundation
-    if (constraints.energy > 0.4) {
-      tracks.push(this.generateHarmonyTrack(constraints, seed, userData));
-    }
+    tracks.push({
+      id: 'bass',
+      name: 'Harmonic Bass',
+      pattern: this.convertPatternToBooleans(config.bass.pattern),
+      presetId: 'sub-bass',
+      volume: 0.7,
+      effects: {},
+      reason: config.bass.reason,
+      musicalRole: 'harmony'
+    });
 
-    // 4. Texture (Snare/Clap) - Adds groove and accent
-    if (constraints.complexity > 0.5) {
-      tracks.push(this.generateTextureTrack(constraints, seed, userData));
-    }
+    tracks.push({
+      id: 'clap',
+      name: 'Syncopated Clap',
+      pattern: this.convertPatternToBooleans(config.syncopation.pattern),
+      presetId: 'clap-synco',
+      volume: 0.6,
+      effects: {},
+      reason: config.syncopation.reason,
+      musicalRole: 'texture'
+    });
 
-    // 5. Lead (Melodic) - Top layer for interest
-    if (constraints.density > 0.7) {
-      tracks.push(this.generateLeadTrack(constraints, seed, userData));
-    }
+    tracks.push({
+      id: 'lead',
+      name: 'Melodic Lead',
+      pattern: this.convertPatternToBooleans(config.lead.pattern),
+      presetId: 'filter-lead',
+      volume: 0.5,
+      effects: {},
+      reason: config.lead.reason,
+      musicalRole: 'lead'
+    });
 
     return tracks;
+  }
+
+  /**
+   * Generate SongData directly from user data - NEW SIMPLIFIED METHOD
+   */
+  static async generateSongData(userData: UserDataSnapshot | null): Promise<any> {
+    const { SimplifiedMusicGenerator } = await import('./simplified-music-generator');
+    
+    const config = SimplifiedMusicGenerator.generateFromUserData(userData);
+    return SimplifiedMusicGenerator.configToSongData(config);
+  }
+
+  /**
+   * Convert step pattern to boolean array for compatibility
+   */
+  private static convertPatternToBooleans(pattern: number[], length: number = 64): boolean[] {
+    const boolArray = new Array(length).fill(false);
+    pattern.forEach(step => {
+      if (step < length) {
+        boolArray[step] = true;
+      }
+    });
+    return boolArray;
   }
 
   /**
