@@ -99,7 +99,7 @@ export async function generateMetadata(): Promise<Metadata> {
     other: {
       "fc:frame": JSON.stringify({
         version: "next",
-        imageUrl: `${baseUrl}/api/embed?mode=default`,
+        imageUrl: `${baseUrl}/hero.png`,
         button: {
           title: "🎵 Create Your Beat",
           action: {
