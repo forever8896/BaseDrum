@@ -8,7 +8,7 @@ import { base } from 'wagmi/chains';
 import { parseEther } from 'viem';
 
 // Contract ABI for the mint function
-export const BASEDRUM_NFT_ABI = [
+const BASEDRUM_NFT_ABI = [
   {
     inputs: [
       {
