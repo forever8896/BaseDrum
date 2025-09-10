@@ -149,11 +149,6 @@ export class SimpleAudioEngine {
         decay: 0.3,    // Moderate decay
         sustain: 0.6,  // Good sustain for pad
         release: 1.0   // Long release for smooth transitions
-      },
-      filter: {
-        Q: 2,
-        type: "lowpass",
-        frequency: 1200
       }
     }).connect(this.leadVolume);
     

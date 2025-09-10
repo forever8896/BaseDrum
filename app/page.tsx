@@ -18,7 +18,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { SimpleAudioEngine } from "@/lib/simpleAudioEngine";
 import { DataFetcher, UserDataSnapshot } from "@/lib/data-fetcher";
-import { SongData, TrackData, validateSongData } from "@/lib/songSchema-new";
+import { SongData, TrackData, validateSongData } from "@/lib/songSchema";
 import { MintSongButtonTransaction } from "@/app/components/MintSongButtonTransaction";
 
 // Animation and styling constants
@@ -400,6 +400,27 @@ export default function CreatePage() {
       return null;
     }
   }, [songData]);
+
+  // Download song data as JSON file
+  const handleDownloadJson = useCallback(() => {
+    const jsonString = exportSongData();
+    if (!jsonString) {
+      console.error('Failed to export song data for download');
+      return;
+    }
+
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${songData.metadata.title.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    console.log('📥 Song JSON downloaded:', link.download);
+  }, [exportSongData, songData.metadata.title]);
 
   // Cleanup audio engine on unmount
   useEffect(() => {
@@ -1468,6 +1489,21 @@ export default function CreatePage() {
             </WalletDropdown>
           </Wallet>
         )}
+
+        {/* Download button - only shows when track is complete */}
+        {(progressionStage === 'complete' || isPlayingAIVersion) && (
+          <button
+            onClick={handleDownloadJson}
+            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-orbitron text-sm transition-colors flex items-center gap-2 z-10"
+            title="Download song data as JSON"
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+              <path d="M12,19L8,15H10.5V12H13.5V15H16L12,19Z" />
+            </svg>
+            Download JSON
+          </button>
+        )}
       </header>
 
       <div className="flex-1 flex items-center justify-center relative z-10">
@@ -1560,13 +1596,25 @@ export default function CreatePage() {
                   {/* Mint Button */}
                   {showMintButton && progressionStage === 'complete' && (
                     <div className="absolute bottom-0 left-0 right-0 z-10 px-4 pb-4">
-                      <MintSongButtonTransaction
-                        songData={songData}
-                        creatorFid={userSnapshot?.farcaster.fid || 0}
-                        onSuccess={handleMintSuccess}
-                        onError={handleMintError}
-                        className="w-full"
-                      />
+                      <div className="flex flex-col gap-3">
+                        <MintSongButtonTransaction
+                          songData={songData}
+                          creatorFid={userSnapshot?.farcaster.fid || 0}
+                          onSuccess={handleMintSuccess}
+                          onError={handleMintError}
+                          className="w-full"
+                        />
+                        <button
+                          onClick={handleDownloadJson}
+                          className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 rounded-lg transition-colors font-orbitron text-lg tracking-wide shadow-lg flex items-center justify-center gap-3"
+                        >
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                            <path d="M12,19L8,15H10.5V12H13.5V15H16L12,19Z" />
+                          </svg>
+                          Download JSON
+                        </button>
+                      </div>
                     </div>
                   )}
 

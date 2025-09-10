@@ -53,7 +53,7 @@ export async function GET() {
       ogTitle: process.env.NEXT_PUBLIC_APP_OG_TITLE || `${appName} - Onchain Music Generator`,
       ogDescription: process.env.NEXT_PUBLIC_APP_OG_DESCRIPTION || description,
       ogImageUrl: process.env.NEXT_PUBLIC_APP_OG_IMAGE || `${baseUrl}/hero.png`,
-      noindex: process.env.NODE_ENV !== 'production',
+      noindex: process.env.NODE_ENV !== 'production' ? 'true' : undefined,
     }),
   });
 }

@@ -594,12 +594,10 @@ export class DataFetcher {
 
   private async fetchCryptoPrices(snapshot: UserDataSnapshot): Promise<void> {
     try {
-      console.log('Attempting to fetch crypto prices via RedStone HTTP API...');
+      console.log('Attempting to fetch crypto prices via API route...');
       
-      // Use RedStone's HTTP API directly for reliable data fetching
-      const apiUrl = 'https://api.redstone.finance/prices';
-      
-      const response = await fetch(`${apiUrl}?symbols=ETH,BTC`);
+      // Use our API route to avoid CORS issues
+      const response = await fetch('/api/crypto-prices');
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

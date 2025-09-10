@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Transaction, TransactionButton, TransactionSponsor, TransactionStatus, TransactionStatusLabel, TransactionStatusAction } from '@coinbase/onchainkit/transaction';
 import { useMiniKit } from '@coinbase/onchainkit/minikit';
-import { SongData } from '../../lib/songSchema-new';
+import { SongData } from '../../lib/songSchema';
 import { base } from 'wagmi/chains';
 import { parseEther } from 'viem';
 

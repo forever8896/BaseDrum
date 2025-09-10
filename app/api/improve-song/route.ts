@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { SongData, validateSongData } from '@/lib/songSchema-new';
+import { SongData, validateSongData } from '@/lib/songSchema';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
