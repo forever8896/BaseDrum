@@ -1596,25 +1596,13 @@ export default function CreatePage() {
                   {/* Mint Button */}
                   {showMintButton && progressionStage === 'complete' && (
                     <div className="absolute bottom-0 left-0 right-0 z-10 px-4 pb-4">
-                      <div className="flex flex-col gap-3">
-                        <MintSongButtonTransaction
-                          songData={songData}
-                          creatorFid={userSnapshot?.farcaster.fid || 0}
-                          onSuccess={handleMintSuccess}
-                          onError={handleMintError}
-                          className="w-full"
-                        />
-                        <button
-                          onClick={handleDownloadJson}
-                          className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 rounded-lg transition-colors font-orbitron text-lg tracking-wide shadow-lg flex items-center justify-center gap-3"
-                        >
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                            <path d="M12,19L8,15H10.5V12H13.5V15H16L12,19Z" />
-                          </svg>
-                          Download JSON
-                        </button>
-                      </div>
+                      <MintSongButtonTransaction
+                        songData={songData}
+                        creatorFid={userSnapshot?.farcaster.fid || 0}
+                        onSuccess={handleMintSuccess}
+                        onError={handleMintError}
+                        className="w-full"
+                      />
                     </div>
                   )}
 
