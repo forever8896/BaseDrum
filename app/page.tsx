@@ -740,7 +740,8 @@ export default function CreatePage() {
         setAvatarAnalysisStage('analyzing');
         
         // Analyze the avatar colors
-        const colors = await analyzeAvatarColors('/jesse.png');
+        const avatarUrl = userSnapshot?.farcaster.pfpUrl || '/jesse.png';
+        const colors = await analyzeAvatarColors(avatarUrl);
         const notes = colors.map(colorToNote);
         
         // Create lead pattern from avatar analysis - LESS IS MORE approach
@@ -1692,7 +1693,7 @@ export default function CreatePage() {
                 <div className="relative mx-auto w-48 h-48">
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl animate-spin slow-spin opacity-20 blur-xl"></div>
                   <img 
-                    src="/jesse.png" 
+                    src={userSnapshot?.farcaster.pfpUrl || '/jesse.png'} 
                     alt="Avatar" 
                     className="relative w-48 h-48 mx-auto rounded-xl border-2 border-white/20 shadow-2xl"
                     style={{
@@ -1719,7 +1720,7 @@ export default function CreatePage() {
                   
                   {/* Avatar image as background */}
                   <img 
-                    src="/jesse.png" 
+                    src={userSnapshot?.farcaster.pfpUrl || '/jesse.png'} 
                     alt="Avatar" 
                     className="absolute inset-0 w-full h-full rounded-xl z-0"
                     style={{ filter: 'brightness(0.7)' }}
@@ -1772,7 +1773,7 @@ export default function CreatePage() {
                   
                   {/* Keep avatar visible but dimmed */}
                   <img 
-                    src="/jesse.png" 
+                    src={userSnapshot?.farcaster.pfpUrl || '/jesse.png'} 
                     alt="Avatar" 
                     className="absolute inset-0 w-full h-full rounded-xl opacity-20 z-0"
                     style={{ filter: 'blur(2px)' }}
